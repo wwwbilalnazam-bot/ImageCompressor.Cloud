@@ -1,0 +1,22 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="30" fill="#16a34a" />
+
+  <!-- Document Icon Frame -->
+  <path
+    d="M40 32H72C76.4183 32 80 35.5817 80 40V80C80 84.4183 76.4183 88 72 88H40C35.5817 88 32 84.4183 32 80V40C32 35.5817 35.5817 32 40 32Z"
+    fill="#ffffff"
+    fill-opacity="0.25"
+    stroke="#ffffff"
+    stroke-width="4.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- Lightning Compression Bolt Symbol -->
+  <path
+    d="M64 36L42 64H58L54 84L78 56H60L64 36Z"
+    fill="#ffffff"
+    stroke="#ffffff"
+    stroke-width="1.5"
+    stroke-linejoin="round"
+  />
+</svg>

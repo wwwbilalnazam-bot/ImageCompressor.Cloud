@@ -1,0 +1,312 @@
+/**
+ * Google AdSense Styling
+ * Ensures proper rendering, prevents layout shifts, and optimizes UX
+ * No changes needed - CSS handles all responsive breakpoints
+ */
+
+/* ====================================
+   AdSense Script & General Styling
+   ==================================== */
+
+/* Prevent AdSense script from affecting layout */
+script[src*="adsbygoogle"] {
+  display: none;
+}
+
+/* ====================================
+   Ad Container Base Styles
+   ==================================== */
+
+[id^="ad-"] {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Prevent layout shifts with CSS containment */
+.adsbygoogle {
+  display: block !important;
+  contain: layout style paint;
+}
+
+/* ====================================
+   Horizontal Banner Ads (728x90, 320x50)
+   ==================================== */
+
+#ad-top-banner,
+#ad-results-separator-mobile,
+#ad-post-results-desktop,
+#ad-pre-faq,
+#ad-post-faq,
+#ad-footer-banner {
+  min-height: 90px;
+  width: 100%;
+  margin: 1.5rem auto;
+  padding: 0.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  #ad-results-separator-mobile {
+    min-height: 50px;
+  }
+}
+
+/* ====================================
+   Vertical Sidebar Ads (300x600, 300x250)
+   ==================================== */
+
+#ad-left-sidebar,
+#ad-right-sidebar {
+  min-height: 600px;
+  width: 100%;
+  max-width: 300px;
+  position: sticky;
+  top: 6rem; /* 24px * 4 = 96px from top */
+  margin: 0 auto;
+  padding: 0.25rem;
+}
+
+/* Adjust sticky position based on header height */
+@media (min-width: 768px) {
+  #ad-left-sidebar,
+  #ad-right-sidebar {
+    top: 7rem; /* Slightly higher for larger screens */
+  }
+}
+
+/* ====================================
+   Medium Rectangle Ads (300x250)
+   ==================================== */
+
+#ad-pre-features-mobile {
+  min-height: 250px;
+  width: 100%;
+  max-width: 300px;
+  margin: 1.5rem auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 1024px) {
+  #ad-pre-features-mobile {
+    display: none;
+  }
+}
+
+/* ====================================
+   Responsive Adjustments
+   ==================================== */
+
+/* Tablet and larger - adjust sidebar sticky position */
+@media (min-width: 768px) {
+  #ad-left-sidebar,
+  #ad-right-sidebar {
+    top: 5rem;
+  }
+}
+
+/* Desktop - ensure sidebars stay visible */
+@media (min-width: 1024px) {
+  #ad-left-sidebar,
+  #ad-right-sidebar {
+    top: 6rem;
+    position: sticky;
+  }
+}
+
+/* ====================================
+   Dark Mode Support
+   ==================================== */
+
+@media (prefers-color-scheme: dark) {
+  [id^="ad-"] {
+    background-color: #1e293b; /* slate-800 */
+    border-color: #334155; /* slate-700 */
+  }
+
+  .adsbygoogle {
+    color-scheme: dark;
+  }
+}
+
+/* ====================================
+   Print Styles (Ads hidden when printing)
+   ==================================== */
+
+@media print {
+  [id^="ad-"],
+  .adsbygoogle {
+    display: none !important;
+  }
+}
+
+/* ====================================
+   Accessibility - Focus Visible
+   ==================================== */
+
+[id^="ad-"]:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+/* ====================================
+   Animation - Smooth Appearance
+   ==================================== */
+
+@keyframes fadeInAd {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+[id^="ad-"] {
+  animation: fadeInAd 0.3s ease-in;
+}
+
+/* ====================================
+   Placeholder Styling (Development Mode)
+   ==================================== */
+
+[id^="ad-"] > div:not(.adsbygoogle) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+/* ====================================
+   Performance Optimization
+   ==================================== */
+
+/* Use will-change sparingly for sidebar ads */
+@media (min-width: 1024px) {
+  #ad-left-sidebar,
+  #ad-right-sidebar {
+    will-change: transform;
+  }
+}
+
+/* ====================================
+   Ensure No Disruption to Main Content
+   ==================================== */
+
+/* Main content should never be pushed by ads */
+.container {
+  z-index: 1;
+}
+
+/* Ad containers have lower z-index */
+[id^="ad-"] {
+  z-index: 0;
+}
+
+/* Except for sticky sidebars which should be visible but not intrusive */
+#ad-left-sidebar,
+#ad-right-sidebar {
+  z-index: 10;
+}
+
+/* ====================================
+   Spacing Consistency
+   ==================================== */
+
+/* All ad containers have consistent spacing */
+[id^="ad-"] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Specific spacing for different ad types */
+#ad-top-banner {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+#ad-footer-banner {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ====================================
+   Mobile-first Responsive Strategy
+   ==================================== */
+
+/* Mobile: show only horizontal banners */
+#ad-left-sidebar,
+#ad-right-sidebar {
+  display: none;
+}
+
+/* Tablet: still hide sidebars (md breakpoint = 768px) */
+@media (max-width: 1023px) {
+  #ad-left-sidebar,
+  #ad-right-sidebar {
+    display: none !important;
+  }
+}
+
+/* Desktop: show sidebars (lg breakpoint = 1024px) */
+@media (min-width: 1024px) {
+  #ad-left-sidebar,
+  #ad-right-sidebar {
+    display: flex !important;
+  }
+}
+
+/* ====================================
+   Performance: Lazy Loading Preparation
+   ==================================== */
+
+/* For future lazy loading implementation */
+[id^="ad-"][data-lazy] {
+  opacity: 0;
+  transition: opacity 0.3s ease-in;
+}
+
+[id^="ad-"][data-lazy].loaded {
+  opacity: 1;
+}
+
+/* ====================================
+   Ad Slot Specific Optimizations
+   ==================================== */
+
+/* Top banner - full width, no constraints */
+#ad-top-banner {
+  width: 100%;
+}
+
+/* Sidebar ads - fixed width for CLS prevention */
+#ad-left-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+#ad-right-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+/* Medium rectangle - centered on mobile */
+#ad-pre-features-mobile {
+  display: block;
+  width: 100%;
+  height: 250px;
+}
+
+/* ====================================
+   Reduce Motion Support
+   ==================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  [id^="ad-"] {
+    animation: none !important;
+    transition: none !important;
+  }
+}
