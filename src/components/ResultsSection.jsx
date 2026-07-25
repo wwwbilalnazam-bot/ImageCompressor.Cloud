@@ -7,9 +7,16 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
 
   if (!images || images.length === 0) return null
 
-  // Calculate batch metrics
-  const totalOriginalSize = images.reduce((acc, img) => acc + (img.originalSize || 0), 0)
-  const totalCompressedSize = images.reduce((acc, img) => acc + (img.compressedSize || img.originalSize || 0), 0)
+  const processingImages = images.filter((img) => img.isCompressing)
+  const doneImages = images.filter((img) => !img.isCompressing)
+  const isStillProcessing = processingImages.length > 0
+
+  // Batch metrics only ever reflect files that have actually finished —
+  // a still-processing file has no compressedSize yet, and treating that
+  // as "0 bytes saved" produced a misleading "Saved 0 B (0% smaller)"
+  // success card while large files were still being compressed.
+  const totalOriginalSize = doneImages.reduce((acc, img) => acc + (img.originalSize || 0), 0)
+  const totalCompressedSize = doneImages.reduce((acc, img) => acc + (img.compressedSize || img.originalSize || 0), 0)
   const totalSavings = Math.max(0, totalOriginalSize - totalCompressedSize)
   const overallRatio = totalOriginalSize > 0 ? Math.round((totalSavings / totalOriginalSize) * 100) : 0
 
@@ -34,56 +41,78 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
 
   return (
     <div className="space-y-4 text-left max-w-3xl mx-auto">
-      {/* Clean Success Summary Card */}
-      <div className="bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800/80 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="space-y-1 text-center sm:text-left">
-          <div className="flex items-center justify-center sm:justify-start gap-2">
-            <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
-              SUCCESS
-            </span>
-            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-              {images.length} {images.length === 1 ? 'File' : 'Files'} Processed
-            </span>
+      {/* Summary Card — shows a processing state until every file is done,
+          instead of an immediate (and misleading) "0% smaller" success card */}
+      {isStillProcessing ? (
+        <div className="bg-blue-50 dark:bg-blue-950/80 border border-blue-200 dark:border-blue-800/80 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1 text-center sm:text-left flex items-center gap-3">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin shrink-0" />
+            <div>
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                  Processing
+                </span>
+                <span className="text-xs font-bold text-blue-800 dark:text-blue-300">
+                  {doneImages.length} of {images.length} {images.length === 1 ? 'file' : 'files'} done
+                </span>
+              </div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                {processingImages.length === 1 ? processingImages[0].progressLabel || 'Compressing...' : `Compressing ${processingImages.length} files...`}
+              </h3>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800/80 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                SUCCESS
+              </span>
+              <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                {images.length} {images.length === 1 ? 'File' : 'Files'} Processed
+              </span>
+            </div>
+
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+              Saved {formatBytes(totalSavings)}{' '}
+              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-lg sm:text-xl">
+                ({overallRatio}% smaller)
+              </span>
+            </h3>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Original: <span className="font-semibold">{formatBytes(totalOriginalSize)}</span> → Compressed:{' '}
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatBytes(totalCompressedSize)}</span>
+            </p>
           </div>
 
-          <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-            Saved {formatBytes(totalSavings)}{' '}
-            <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-lg sm:text-xl">
-              ({overallRatio}% smaller)
-            </span>
-          </h3>
+          {/* Global Actions */}
+          <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
+            {images.length > 1 && (
+              <button
+                type="button"
+                onClick={handleDownloadZip}
+                disabled={isZipping}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-sm text-xs transition-all flex items-center justify-center gap-1.5"
+              >
+                {isZipping ? 'Zipping...' : 'Download All (ZIP)'}
+              </button>
+            )}
 
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Original: <span className="font-semibold">{formatBytes(totalOriginalSize)}</span> → Compressed:{' '}
-            <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatBytes(totalCompressedSize)}</span>
-          </p>
-        </div>
-
-        {/* Global Actions */}
-        <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
-          {images.length > 1 && (
             <button
               type="button"
-              onClick={handleDownloadZip}
-              disabled={isZipping}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-sm text-xs transition-all flex items-center justify-center gap-1.5"
+              onClick={onCompressAnother}
+              className="px-4 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 font-extrabold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5"
             >
-              {isZipping ? 'Zipping...' : 'Download All (ZIP)'}
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Compress More</span>
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onCompressAnother}
-            className="px-4 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-emerald-500 font-extrabold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>Compress More</span>
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Individual Result Cards */}
       <div className="space-y-3">
@@ -94,24 +123,39 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
           >
             {/* File Info Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="space-y-0.5">
+              <div className="space-y-1 flex-1">
                 <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate max-w-sm">
                   {img.originalFile?.name || 'Processed File'}
                 </h4>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <span>Original: {formatBytes(img.originalSize)}</span>
-                  {img.compressedSize && (
-                    <>
-                      <span>→</span>
-                      <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
-                        {formatBytes(img.compressedSize)}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
-                        -{img.ratio}%
-                      </span>
-                    </>
-                  )}
-                </div>
+                {img.isCompressing ? (
+                  <div className="space-y-1 max-w-xs">
+                    <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                      <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                      <span>{img.progressLabel || 'Compressing...'}</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                      <div
+                        className="h-full bg-blue-600 transition-all duration-200"
+                        style={{ width: `${img.progressPct || 0}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span>Original: {formatBytes(img.originalSize)}</span>
+                    {img.compressedSize && (
+                      <>
+                        <span>→</span>
+                        <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                          {formatBytes(img.compressedSize)}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
+                          -{img.ratio}%
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Single Download Button */}

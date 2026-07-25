@@ -45,6 +45,8 @@ export default function MainCompressorPremium({ defaultTargetSize = 100, pageTit
         originalSize: file.size,
         preview: previewUrl,
         isCompressing: true,
+        progressPct: 0,
+        progressLabel: 'Waiting...',
         compressedSize: null,
         compressedDataUrl: null,
         blob: null,
@@ -66,14 +68,31 @@ export default function MainCompressorPremium({ defaultTargetSize = 100, pageTit
     for (const item of newItems) {
       try {
         if (item.isPdf) {
+          setImages((prev) =>
+            prev.map((img) =>
+              img.id === item.id ? { ...img, progressLabel: 'Reading PDF...', progressPct: 0 } : img
+            )
+          )
+
           const { pdfDoc } = await validatePdfFile(item.originalFile)
           const level = getAutomaticLevel(item.originalFile.size)
-          const { bytes } = await compressPdf(pdfDoc, {
-            quality: level.quality,
-            maxDimension: level.maxDimension,
-            grayscale: false,
-            removeMetadata: false,
-          })
+          const { bytes } = await compressPdf(
+            pdfDoc,
+            { quality: level.quality, maxDimension: level.maxDimension, grayscale: false, removeMetadata: false },
+            (current, total) => {
+              setImages((prev) =>
+                prev.map((img) =>
+                  img.id === item.id
+                    ? {
+                        ...img,
+                        progressLabel: total ? `Optimizing image ${current} of ${total}...` : 'Optimizing document...',
+                        progressPct: total ? Math.round((current / total) * 100) : 100,
+                      }
+                    : img
+                )
+              )
+            }
+          )
 
           let pdfBlob = new Blob([bytes], { type: 'application/pdf' })
           // Never ship a "compressed" file that's actually bigger than the original.
@@ -99,6 +118,11 @@ export default function MainCompressorPremium({ defaultTargetSize = 100, pageTit
             )
           )
         } else {
+          setImages((prev) =>
+            prev.map((img) =>
+              img.id === item.id ? { ...img, progressLabel: 'Compressing image...', progressPct: 50 } : img
+            )
+          )
           const result = await compressToTargetSize(item.originalFile, targetSize, outputFormat)
           const compressedUrl = URL.createObjectURL(result.blob)
 
