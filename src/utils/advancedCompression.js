@@ -202,14 +202,19 @@ export async function compressToTargetSize(file, targetSizeKB = 100, outputForma
             targetMime = outputFormat
           }
 
-          // Step 1: Quality search at 100% dimensions
-          let result = await findBestQualityWithoutResize(
-            img,
-            originalWidth,
-            originalHeight,
-            targetMime,
-            targetBytes
-          )
+          // Step 1: Quality search at 100% dimensions — but skip it entirely
+          // when the size gap is so large that quality reduction alone could
+          // never realistically get there (needing >8x reduction almost
+          // always needs downscaling too). Without this, a large photo with
+          // a small target size wastes up to ~15 full-resolution re-encodes
+          // on a search that was always going to fail, before falling
+          // through to the resize search that actually succeeds — this was
+          // the dominant cost of a "slow" compression, not the resize
+          // search itself.
+          const qualityOnlyIsPlausible = file.size <= targetBytes * 8
+          let result = qualityOnlyIsPlausible
+            ? await findBestQualityWithoutResize(img, originalWidth, originalHeight, targetMime, targetBytes)
+            : null
 
           // Step 2: Dimension scaling search if still over target
           if (!result || result.compressedSize > targetBytes + TARGET_TOLERANCE_KB * 1024) {

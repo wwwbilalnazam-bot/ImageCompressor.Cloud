@@ -44,15 +44,15 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
       {/* Summary Card — shows a processing state until every file is done,
           instead of an immediate (and misleading) "0% smaller" success card */}
       {isStillProcessing ? (
-        <div className="bg-blue-50 dark:bg-blue-950/80 border border-blue-200 dark:border-blue-800/80 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800/80 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center sm:text-left flex items-center gap-3">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin shrink-0" />
+            <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin shrink-0" />
             <div>
               <div className="flex items-center justify-center sm:justify-start gap-2">
-                <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
                   Processing
                 </span>
-                <span className="text-xs font-bold text-blue-800 dark:text-blue-300">
+                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
                   {doneImages.length} of {images.length} {images.length === 1 ? 'file' : 'files'} done
                 </span>
               </div>
@@ -129,13 +129,13 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
                 </h4>
                 {img.isCompressing ? (
                   <div className="space-y-1 max-w-xs">
-                    <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
-                      <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                      <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin shrink-0" />
                       <span>{img.progressLabel || 'Compressing...'}</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 transition-all duration-200"
+                        className="h-full bg-emerald-600 transition-all duration-200"
                         style={{ width: `${img.progressPct || 0}%` }}
                       />
                     </div>
