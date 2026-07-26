@@ -1,5 +1,3 @@
-import { PDFDocument } from 'pdf-lib'
-import JSZip from 'jszip'
 import { generateThumbnail } from './pdfEditorEngine'
 import { validatePdfFile, PdfValidationError, MAX_PDF_SIZE_BYTES } from './pdfValidation'
 
@@ -8,6 +6,9 @@ import { validatePdfFile, PdfValidationError, MAX_PDF_SIZE_BYTES } from './pdfVa
  * Pages are copied via pdf-lib's copyPages (real PDF object graph, not a
  * rasterized re-render), so text, images, links, annotations, page
  * orientation and most metadata survive a split untouched.
+ *
+ * pdf-lib and JSZip are imported dynamically inside the functions that use
+ * them, keeping both out of the route's initial bundle.
  */
 
 export { validatePdfFile, PdfValidationError, MAX_PDF_SIZE_BYTES }
@@ -45,6 +46,7 @@ export async function extractPagesToBytes(srcDoc, pageIndices) {
     throw new Error('No pages selected.')
   }
 
+  const { PDFDocument } = await import('pdf-lib')
   const newDoc = await PDFDocument.create()
   const copiedPages = await newDoc.copyPages(srcDoc, pageIndices)
   copiedPages.forEach((page) => newDoc.addPage(page))
@@ -127,6 +129,7 @@ export function sanitizeBaseName(filename) {
  * filenames (no forced extension/renaming).
  */
 export async function createPdfZip(items) {
+  const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   items.forEach((item) => zip.file(item.filename, item.blob))
   return zip.generateAsync({ type: 'blob' })

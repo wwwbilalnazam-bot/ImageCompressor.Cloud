@@ -1,5 +1,5 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { loadPdfJs } from './pdfConverter'
+import { DOCX_MIME, XLSX_MIME, PPTX_MIME } from '../config/mimeTypes'
 import {
   pdfToWordBackend,
   pdfToExcelBackend,
@@ -17,11 +17,17 @@ import {
  * in a browser. Everything else (images, PDF->image, image/text->PDF) runs
  * entirely client-side via pdf.js/pdf-lib/canvas — faster, private, and no
  * server dependency for the conversions that don't need one.
+ *
+ * pdf-lib is imported dynamically by the two builders that need it
+ * (imageToPdfBlob / textToPdfBlob) instead of at module scope, keeping it out
+ * of the initial bundle for the fourteen converter routes.
+ *
+ * The Office MIME constants now live in `src/config/mimeTypes.js` so route
+ * configuration can reference them without importing this whole engine; they
+ * are re-exported here to keep existing import sites working.
  */
 
-export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-export const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+export { DOCX_MIME, XLSX_MIME, PPTX_MIME }
 
 export const CONVERSION_PRESETS = [
   { id: 'word-to-pdf', from: 'word', accept: '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document', to: 'application/pdf', label: 'Word to PDF', backend: true },
@@ -253,6 +259,7 @@ async function imageToPdfBlob(file) {
   const pngBlob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
   const pngBytes = new Uint8Array(await pngBlob.arrayBuffer())
 
+  const { PDFDocument } = await import('pdf-lib')
   const pdfDoc = await PDFDocument.create()
   const pngImage = await pdfDoc.embedPng(pngBytes)
   const page = pdfDoc.addPage([width, height])
@@ -294,6 +301,7 @@ function wrapTextLine(line, font, fontSize, maxWidth) {
  * per page — this produces genuine vector text instead).
  */
 async function textToPdfBlob(rawText) {
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib')
   const text = sanitizeForStandardFont(rawText)
   const pdfDoc = await PDFDocument.create()
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)

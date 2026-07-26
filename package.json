@@ -4,31 +4,29 @@
   "type": "module",
   "description": "Free online image compressor - compress PNG, JPEG, WebP & AVIF instantly",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "eslint src --ext .jsx"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@squoosh/lib": "^0.4.0",
-    "fabric": "^5.3.0",
-    "jspdf": "^2.5.1",
     "jszip": "^3.10.1",
+    "next": "^16.2.12",
+    "next-intl": "^4.13.4",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^3.11.174",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-dropzone": "^14.2.3",
-    "react-router-dom": "^7.18.1"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.0",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.0",
-    "eslint": "^8.54.0",
-    "eslint-plugin-react": "^7.33.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.2.12",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "terser": "^5.49.0",
-    "vite": "^5.0.0"
+    "typescript": "^6.0.3"
   }
 }

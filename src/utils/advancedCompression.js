@@ -1,8 +1,10 @@
-import JSZip from 'jszip'
-
 /**
  * Advanced image compression with intelligent binary search algorithm
  * Achieves target file sizes with maximum quality preservation
+ *
+ * JSZip is imported dynamically inside createZipArchive() rather than at the
+ * top of the file: only the batch-download path needs it, so there is no
+ * reason for it to sit in the route's initial JavaScript bundle.
  */
 
 const TARGET_TOLERANCE_KB = 2 // ±2KB tolerance
@@ -272,6 +274,7 @@ export async function compressToTargetSize(file, targetSizeKB = 100, outputForma
  * Generate a ZIP archive containing all compressed images for batch download
  */
 export async function createZipArchive(compressedImages) {
+  const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   const folder = zip.folder('compressed-images')
 

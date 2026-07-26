@@ -3,8 +3,10 @@
 // other conversion on the site runs entirely client-side, since real
 // Office-format fidelity isn't achievable in a browser but everything
 // else (images, PDF<->images, text->PDF) works fine without a server.
-const API_BASE =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://localhost:8000/api'
+// NEXT_PUBLIC_ prefix is required for the value to be inlined into the client
+// bundle (this module only ever runs in the browser). Set it in Vercel for
+// Production and Preview — it replaces the old Vite-era VITE_API_URL.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
 export type ProgressCallback = (stage: 'uploading' | 'converting', percent: number) => void
 

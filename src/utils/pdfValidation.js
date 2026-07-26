@@ -1,9 +1,11 @@
-import { PDFDocument, EncryptedPDFError } from 'pdf-lib'
-
 /**
  * Shared PDF upload validation — used by every client-side PDF tool
  * (Split, Merge, Compress). Parses the file into a pdf-lib document so
  * callers get a ready-to-use PDFDocument instead of re-parsing.
+ *
+ * pdf-lib is loaded with a dynamic import inside validatePdfFile() rather than
+ * at module scope, so it only enters the bundle chunk that actually runs when a
+ * user picks a file.
  */
 
 export const MAX_PDF_SIZE_BYTES = 300 * 1024 * 1024 // 300MB — client memory safety cap
@@ -20,6 +22,8 @@ export class PdfValidationError extends Error {
  * Throws PdfValidationError with a user-facing message on any failure.
  */
 export async function validatePdfFile(file) {
+  const { PDFDocument, EncryptedPDFError } = await import('pdf-lib')
+
   if (!file) throw new PdfValidationError('No file provided.')
 
   const looksLikePdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)

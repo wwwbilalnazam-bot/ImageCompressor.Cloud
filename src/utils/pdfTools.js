@@ -1,10 +1,12 @@
-import { PDFDocument } from 'pdf-lib'
 import { loadPdfJs } from './pdfConverter'
 
 /**
  * Client-Side PDF Tools Engine
  * Performs Merge, Images-to-PDF, Rotate, Watermark, Page Numbering, Sign PDF & Put Logo 100% in browser.
  * (Compress and Split live in dedicated engines: pdfCompressionEngine.js and pdfSplitEngine.js.)
+ *
+ * pdf-lib is imported dynamically inside buildMultiPagePdfFromImages(), the one
+ * place it is actually used, so it stays out of the initial route bundle.
  */
 
 /**
@@ -354,6 +356,7 @@ export async function putLogoOnPdf(pdfFile, logoFile, position = 'top-right') {
  * Build a multi-page PDF from rendered JPEG page images.
  */
 async function buildMultiPagePdfFromImages(pageImages) {
+  const { PDFDocument } = await import('pdf-lib')
   const pdfDoc = await PDFDocument.create()
 
   for (const page of pageImages) {
