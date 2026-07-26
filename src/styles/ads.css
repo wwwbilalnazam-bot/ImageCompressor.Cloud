@@ -122,15 +122,13 @@ script[src*="adsbygoogle"] {
    Dark Mode Support
    ==================================== */
 
-@media (prefers-color-scheme: dark) {
-  [id^="ad-"] {
-    background-color: #1e293b; /* slate-800 */
-    border-color: #334155; /* slate-700 */
-  }
+.dark [id^="ad-"] {
+  background-color: #1e293b; /* slate-800 */
+  border-color: #334155; /* slate-700 */
+}
 
-  .adsbygoogle {
-    color-scheme: dark;
-  }
+.dark .adsbygoogle {
+  color-scheme: dark;
 }
 
 /* ====================================
