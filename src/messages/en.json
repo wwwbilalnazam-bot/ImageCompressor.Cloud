@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "compressor": "Compressor",
+    "converter": "Converter",
+    "mergePdf": "Merge PDF",
+    "splitPdf": "Split PDF",
+    "compressPdf": "Compress PDF",
+    "menu": "Menu",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "home": "Home"
+  },
+  "theme": {
+    "toggle": "Toggle dark mode",
+    "light": "Light",
+    "dark": "Dark",
+    "switchToLight": "Switch to Light Mode",
+    "switchToDark": "Switch to Dark Mode"
+  },
+  "footer": {
+    "tagline": "Compress, convert, merge and split files entirely in your browser. No uploads, no signup, no limits.",
+    "rights": "Free Browser Utility",
+    "categories": {
+      "compress": "Compress",
+      "convert": "Convert",
+      "pdf": "PDF Tools",
+      "company": "Company"
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Page not found",
+    "body": "The page you were looking for doesn't exist, or has moved. Pick a tool below to keep going.",
+    "cta": "Back to the compressor"
+  }
+}

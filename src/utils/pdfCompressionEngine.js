@@ -1,4 +1,3 @@
-import { PDFDocument, PDFName, PDFArray, PDFRawStream, PDFNumber } from 'pdf-lib'
 import { validatePdfFile, PdfValidationError, MAX_PDF_SIZE_BYTES } from './pdfValidation'
 
 /**
@@ -8,6 +7,10 @@ import { validatePdfFile, PdfValidationError, MAX_PDF_SIZE_BYTES } from './pdfVa
  * structure untouched. Other image encodings (raw/Flate bitmaps, CCITT fax,
  * JPEG2000) are left as-is rather than risking a corrupted or visually wrong
  * output from hand-decoding less common pixel formats.
+ *
+ * pdf-lib is loaded with a dynamic import inside the two async entry points
+ * (loadFreshDocument / compressPdf) and threaded into the synchronous helpers
+ * as `lib`, so none of it lands in the route's initial bundle.
  */
 
 export { validatePdfFile, PdfValidationError, MAX_PDF_SIZE_BYTES }
@@ -38,7 +41,8 @@ export function getAutomaticLevel(fileSizeBytes) {
   return COMPRESSION_LEVELS.high
 }
 
-function isDCTDecode(filter) {
+function isDCTDecode(lib, filter) {
+  const { PDFName, PDFArray } = lib
   if (!filter) return false
   if (filter instanceof PDFName) return filter.asString() === '/DCTDecode'
   if (filter instanceof PDFArray) {
@@ -93,14 +97,15 @@ async function recompressJpegBytes(jpegBytes, { quality, maxDimension, grayscale
  * Resources dict by hand, and naturally dedupes images shared across pages
  * (each is only recompressed once, since it's a single underlying object).
  */
-function findCompressibleImageStreams(pdfDoc) {
+function findCompressibleImageStreams(lib, pdfDoc) {
+  const { PDFName, PDFRawStream } = lib
   const streams = []
   for (const [, obj] of pdfDoc.context.enumerateIndirectObjects()) {
     if (!(obj instanceof PDFRawStream)) continue
     const subtype = obj.dict.lookup(PDFName.of('Subtype'))
     if (!(subtype instanceof PDFName) || subtype.asString() !== '/Image') continue
     const filter = obj.dict.lookup(PDFName.of('Filter'))
-    if (!isDCTDecode(filter)) continue
+    if (!isDCTDecode(lib, filter)) continue
     streams.push(obj)
   }
   return streams
@@ -115,6 +120,7 @@ function findCompressibleImageStreams(pdfDoc) {
  * already-recompressed images, compounding quality loss unexpectedly.
  */
 export async function loadFreshDocument(arrayBuffer) {
+  const { PDFDocument } = await import('pdf-lib')
   return PDFDocument.load(arrayBuffer.slice(0), { updateMetadata: false })
 }
 
@@ -125,9 +131,11 @@ export async function loadFreshDocument(arrayBuffer) {
  * onProgress(current, total) fires as each image finishes.
  */
 export async function compressPdf(pdfDoc, options, onProgress) {
+  const lib = await import('pdf-lib')
+  const { PDFName, PDFNumber } = lib
   const { quality, maxDimension, grayscale, removeMetadata } = options
 
-  const imageStreams = findCompressibleImageStreams(pdfDoc)
+  const imageStreams = findCompressibleImageStreams(lib, pdfDoc)
   let imagesRecompressed = 0
 
   for (let i = 0; i < imageStreams.length; i++) {

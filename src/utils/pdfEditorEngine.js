@@ -1,10 +1,55 @@
-import * as pdfjsLib from 'pdfjs-dist'
-import { jsPDF } from 'jspdf'
-import { PDFDocument, PDFPage, rgb, degrees } from 'pdf-lib'
+/**
+ * pdf.js / pdf-lib helpers.
+ *
+ * SSR note: this module used to do `import * as pdfjsLib from 'pdfjs-dist'`
+ * at the top level and then assign `pdfjsLib.GlobalWorkerOptions.workerSrc`
+ * as a module-scope side effect. pdf.js probes DOM globals (DOMMatrix, etc.)
+ * the moment it is imported, so that made the module impossible to evaluate in
+ * a Node/SSR pass — it was the one genuine SSR hazard in the codebase.
+ *
+ * Both pdf.js and pdf-lib are now pulled in with `await import(...)` inside the
+ * functions that need them, memoized so the cost is paid once. That also keeps
+ * them out of the initial route bundle.
+ */
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+let pdfjsPromise = null
+
+/**
+ * Load pdf.js on demand and point it at the bundled worker.
+ *
+ * The worker is resolved out of the installed `pdfjs-dist` package rather than
+ * a CDN URL, so it is same-origin and always the exact version this app has in
+ * node_modules (the old CDN URL interpolated `pdfjsLib.version` into a cdnjs
+ * path, which silently breaks whenever cdnjs lacks that build).
+ *
+ * pdfjs-dist v3 ships `build/pdf.worker.min.js`; v4+ renamed it to
+ * `pdf.worker.min.mjs`. Update this path alongside any major version bump.
+ */
+export function getPdfjs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = (async () => {
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.js',
+        import.meta.url
+      ).toString()
+      return pdfjsLib
+    })()
+  }
+  return pdfjsPromise
+}
+
+let pdfLibPromise = null
+
+function getPdfLib() {
+  if (!pdfLibPromise) {
+    pdfLibPromise = import('pdf-lib')
+  }
+  return pdfLibPromise
+}
 
 export async function loadPdfFile(file) {
+  const pdfjsLib = await getPdfjs()
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   return { pdf, arrayBuffer, fileName: file.name }
@@ -49,6 +94,7 @@ export async function generateThumbnail(pdf, pageNumber, size = 120) {
 }
 
 export async function exportEditedPdf(pdfDoc, edits) {
+  const { rgb } = await getPdfLib()
   const pages = pdfDoc.getPages()
 
   for (const edit of edits) {
@@ -61,13 +107,13 @@ export async function exportEditedPdf(pdfDoc, edits) {
         x: edit.x,
         y: edit.y,
         size: edit.fontSize || 12,
-        color: hexToRgb(edit.color || '#000000'),
+        color: hexToRgb(rgb, edit.color || '#000000'),
         font: edit.font,
       })
     }
 
     if (edit.type === 'image') {
-      const imageBytes = await fetch(edit.imageSrc).then(r => r.arrayBuffer())
+      const imageBytes = await fetch(edit.imageSrc).then((r) => r.arrayBuffer())
       const img = await pdfDoc.embedPng(imageBytes)
       page.drawImage(img, {
         x: edit.x,
@@ -83,9 +129,9 @@ export async function exportEditedPdf(pdfDoc, edits) {
         y: edit.y,
         width: edit.width,
         height: edit.height,
-        borderColor: hexToRgb(edit.borderColor || '#000000'),
+        borderColor: hexToRgb(rgb, edit.borderColor || '#000000'),
         borderWidth: edit.borderWidth || 1,
-        color: edit.fillColor ? hexToRgb(edit.fillColor) : undefined,
+        color: edit.fillColor ? hexToRgb(rgb, edit.fillColor) : undefined,
       })
     }
 
@@ -94,9 +140,9 @@ export async function exportEditedPdf(pdfDoc, edits) {
         x: edit.x,
         y: edit.y,
         size: edit.size,
-        borderColor: hexToRgb(edit.borderColor || '#000000'),
+        borderColor: hexToRgb(rgb, edit.borderColor || '#000000'),
         borderWidth: edit.borderWidth || 1,
-        color: edit.fillColor ? hexToRgb(edit.fillColor) : undefined,
+        color: edit.fillColor ? hexToRgb(rgb, edit.fillColor) : undefined,
       })
     }
 
@@ -105,12 +151,12 @@ export async function exportEditedPdf(pdfDoc, edits) {
         start: { x: edit.x1, y: edit.y1 },
         end: { x: edit.x2, y: edit.y2 },
         thickness: edit.thickness || 1,
-        color: hexToRgb(edit.color || '#000000'),
+        color: hexToRgb(rgb, edit.color || '#000000'),
       })
     }
 
     if (edit.type === 'signature') {
-      const sigBytes = await fetch(edit.signatureImage).then(r => r.arrayBuffer())
+      const sigBytes = await fetch(edit.signatureImage).then((r) => r.arrayBuffer())
       const sig = await pdfDoc.embedPng(sigBytes)
       page.drawImage(sig, {
         x: edit.x,
@@ -124,14 +170,11 @@ export async function exportEditedPdf(pdfDoc, edits) {
   return await pdfDoc.save()
 }
 
-function hexToRgb(hex) {
+/** `rgb` is passed in because pdf-lib is now loaded lazily, not at module scope. */
+function hexToRgb(rgb, hex) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   if (!result) return rgb(0, 0, 0)
-  return rgb(
-    parseInt(result[1], 16),
-    parseInt(result[2], 16),
-    parseInt(result[3], 16)
-  )
+  return rgb(parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16))
 }
 
 export async function addBlankPage(pdfDoc) {
@@ -146,20 +189,8 @@ export async function deletePage(pdfDoc, pageIndex) {
   return pdfDoc
 }
 
-export async function duplicatePage(pdfDoc, pageIndex) {
-  const pages = pdfDoc.getPages()
-  const pageToDuplicate = pages[pageIndex]
-  const newPage = pdfDoc.addPage(pageToDuplicate.getSize())
-
-  const { width, height } = pageToDuplicate.getSize()
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-
-  return pdfDoc
-}
-
 export async function rotatePage(pdfDoc, pageIndex, degrees_angle) {
+  const { degrees } = await getPdfLib()
   const pages = pdfDoc.getPages()
   const page = pages[pageIndex]
   const currentRotation = page.getRotation().angle || 0
@@ -169,6 +200,7 @@ export async function rotatePage(pdfDoc, pageIndex, degrees_angle) {
 }
 
 export async function extractPages(pdfDoc, pageIndices) {
+  const { PDFDocument } = await getPdfLib()
   const newPdf = await PDFDocument.create()
   const pages = pdfDoc.getPages()
 
@@ -191,6 +223,7 @@ export async function mergePdfDocuments(pdfDoc1, pdfDoc2) {
 }
 
 export async function splitPdf(pdfDoc) {
+  const { PDFDocument } = await getPdfLib()
   const pages = pdfDoc.getPages()
   const splitPdfs = []
 

@@ -36,25 +36,10 @@ export default function Logo({ size = 'default', className = '' }) {
       </defs>
 
       {/* Main Rounded Shield Container */}
-      <rect
-        x="10"
-        y="10"
-        width="100"
-        height="100"
-        rx="28"
-        fill="url(#logoPrimaryGrad)"
-        filter="url(#glowEffect)"
-      />
+      <rect x="10" y="10" width="100" height="100" rx="28" fill="url(#logoPrimaryGrad)" filter="url(#glowEffect)" />
 
       {/* Gloss Overlay */}
-      <rect
-        x="10"
-        y="10"
-        width="100"
-        height="50"
-        rx="28"
-        fill="url(#logoGlossGrad)"
-      />
+      <rect x="10" y="10" width="100" height="50" rx="28" fill="url(#logoGlossGrad)" />
 
       {/* Document Icon Frame */}
       <path

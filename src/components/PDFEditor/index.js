@@ -1,6 +1,0 @@
-export { default as PDFEditorLayout } from './PDFEditorLayout'
-export { default as TopToolbar } from './TopToolbar'
-export { default as ThumbnailSidebar } from './ThumbnailSidebar'
-export { default as PDFViewer } from './PDFViewer'
-export { default as AddContentPanel } from './AddContentPanel'
-export { default as PropertyPanel } from './PropertyPanel'
