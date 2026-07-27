@@ -1,0 +1,153 @@
+{
+  "nav": {
+    "compressor": "Compresor",
+    "converter": "Convertidor",
+    "mergePdf": "Unir PDF",
+    "splitPdf": "Dividir PDF",
+    "compressPdf": "Comprimir PDF",
+    "menu": "Menú",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "home": "Inicio"
+  },
+  "theme": {
+    "toggle": "Cambiar modo oscuro",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "switchToLight": "Cambiar a modo claro",
+    "switchToDark": "Cambiar a modo oscuro"
+  },
+  "footer": {
+    "tagline": "Comprime, convierte, une y divide archivos directamente en tu navegador. Sin subidas, sin registro, sin límites.",
+    "rights": "Utilidad Gratuita en el Navegador",
+    "categories": {
+      "compress": "Comprimir",
+      "convert": "Convertir",
+      "pdf": "Herramientas PDF",
+      "compare": "Comparar",
+      "guides": "Guías",
+      "company": "Empresa"
+    }
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Página no encontrada",
+    "body": "La página que buscabas no existe, o ha sido movida. Elige una herramienta abajo para continuar.",
+    "cta": "Volver al compresor"
+  },
+  "compressor": {
+    "title": "Comprimir Archivos",
+    "subtitle": "Comprime archivos PNG, JPG, WebP, AVIF, GIF y PDF con 100% de privacidad en el navegador.",
+    "dropzone": {
+      "releaseToCompress": "Suelta los archivos para comprimir",
+      "dragDrop": "Arrastra y suelta imágenes o PDFs aquí",
+      "subtitle": "Selecciona imágenes o documentos PDF desde tu dispositivo",
+      "compressing": "Comprimiendo...",
+      "selectFiles": "Seleccionar Archivos"
+    },
+    "targetSize": {
+      "label": "TAMAÑO OBJETIVO:",
+      "customKb": "KB personalizado:",
+      "format": "Formato:"
+    },
+    "formats": {
+      "original": "Formato Original",
+      "webp": "Convertir a WebP",
+      "jpg": "Convertir a JPG",
+      "png": "Convertir a PNG"
+    },
+    "status": {
+      "processing": "Procesando",
+      "filesDone": "{done} de {total} {total, plural, one {archivo} other {archivos}} listos",
+      "compressingCount": "Comprimiendo {count} archivos...",
+      "success": "LISTO",
+      "filesProcessed": "{count} {count, plural, one {Archivo Procesado} other {Archivos Procesados}}",
+      "saved": "Ahorraste {size}",
+      "savedRatio": "({ratio}% más pequeño)",
+      "originalLabel": "Original:",
+      "compressedLabel": "Comprimido:"
+    },
+    "actions": {
+      "zipping": "Creando ZIP...",
+      "downloadAllZip": "Descargar Todo (ZIP)",
+      "compressMore": "Comprimir Más",
+      "download": "Descargar"
+    },
+    "item": {
+      "processedFile": "Archivo Procesado",
+      "compressionNote": "Nota de compresión: {error}",
+      "animatedGifWarning": "Este GIF está animado — el resultado comprimido es una imagen estática (solo el primer fotograma). La animación no se conserva."
+    },
+    "slider": {
+      "original": "Original",
+      "compressed": "Comprimido"
+    }
+  },
+  "compressPdf": {
+    "title": "Comprimir PDF",
+    "subtitle": "Reduce el tamaño de un PDF manteniendo el texto nítido y legible — directamente en tu navegador.",
+    "dropzone": {
+      "readingPdf": "Leyendo PDF...",
+      "dropHere": "Suelta tu PDF aquí",
+      "uploadPrompt": "Sube un PDF para comprimir",
+      "dragDropHint": "Arrastra y suelta un PDF, o haz clic para explorar",
+      "selectPdf": "Seleccionar PDF",
+      "sizeHint": "Solo PDF • hasta 300MB • 100% procesado en tu navegador"
+    },
+    "changeFile": "Cambiar Archivo",
+    "compressionLevel": "Nivel de compresión",
+    "autoLabel": "Automático",
+    "autoDesc": "Ajuste inteligente predeterminado — recomendado para la mayoría de los PDFs",
+    "customSettingsDesc": "Configuración personalizada (ver Opciones Avanzadas)",
+    "advancedOptions": "Opciones Avanzadas",
+    "imageQuality": "Calidad de imagen",
+    "maxImageResolution": "Resolución máxima de imagen",
+    "grayscaleLabel": "Convertir imágenes a escala de grises",
+    "removeMetadataLabel": "Eliminar metadatos (título, autor, palabras clave...)",
+    "optimizeForWebLabel": "Optimizar para web (limita resolución y elimina metadatos)",
+    "preparing": "Preparando...",
+    "compressingImage": "Comprimiendo imagen {current} de {total}...",
+    "optimizingDocument": "Optimizando documento...",
+    "compressButton": "Comprimir PDF",
+    "defaultFileError": "No se pudo leer este archivo PDF.",
+    "defaultCompressError": "No se pudo comprimir el PDF. Inténtalo de nuevo.",
+    "result": {
+      "title": "¡Compresión Completa!",
+      "reducedBy": "Reducido en {pct}% — {done} de {total} {total, plural, one {imagen optimizada} other {imágenes optimizadas}}",
+      "noCompressibleImages": "Este PDF no tiene imágenes comprimibles — los PDFs basados en texto ya están muy optimizados.",
+      "alreadyOptimized": "Este archivo ya estaba bien optimizado — no fue posible reducirlo más.",
+      "original": "Original",
+      "compressed": "Comprimido",
+      "preservedNote": "El texto, las fuentes, los enlaces y el diseño de página siempre se conservan — solo se recomprimen las imágenes incrustadas.",
+      "tryAnotherLevel": "Probar Otro Nivel",
+      "download": "Descargar",
+      "compressAnother": "Comprimir Otro PDF"
+    },
+    "summary": {
+      "title": "Resumen",
+      "fileSize": "Tamaño del Archivo:",
+      "pages": "Páginas:",
+      "level": "Nivel:",
+      "custom": "Personalizado"
+    },
+    "privacy": {
+      "title": "Privacidad",
+      "note": "Tus archivos se eliminan automáticamente después de procesarlos. Todo funciona 100% en tu navegador — nada se sube nunca a un servidor."
+    },
+    "features": {
+      "title": "Características",
+      "items": [
+        "Ajustes Automático, Bajo, Medio y Alto",
+        "Conserva texto, fuentes y enlaces",
+        "Controles de escala de grises, DPI y metadatos",
+        "Comparación de tamaño antes/después",
+        "Admite archivos de hasta 300MB",
+        "100% privado, basado en el navegador"
+      ]
+    },
+    "howItWorks": {
+      "title": "Cómo funciona la compresión de PDF",
+      "body": "La mayoría de los PDFs con tamaño excesivo son grandes por fotos incrustadas o páginas escaneadas, no por el texto. Esta herramienta encuentra cada imagen JPEG incrustada en tu documento — incluidas las reutilizadas en varias páginas — y recodifica cada una a menor calidad y resolución según el nivel elegido. El texto vectorial, las fuentes y los enlaces son parte de la estructura del PDF, no una imagen, así que permanecen completamente intactos, manteniendo tu documento nítido y legible después de la compresión."
+    }
+  }
+}

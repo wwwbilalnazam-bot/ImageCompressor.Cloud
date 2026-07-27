@@ -19,7 +19,7 @@ export default async function Footer() {
   return (
     <footer className="bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-900">
       <div className="container max-w-7xl mx-auto px-4 py-10">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-8">
           {/* Brand blurb */}
           <div className="col-span-2 md:col-span-3 lg:col-span-1 space-y-3">
             <Link href="/" className="flex items-center gap-2.5">

@@ -16,7 +16,8 @@
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^3.11.174",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "svgo": "^4.0.2"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

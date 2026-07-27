@@ -1,11 +1,13 @@
+import { useTranslations } from 'next-intl'
 import { TARGET_SIZES } from '../utils/advancedCompression'
 
 export default function TargetSizeSelector({ selectedSize, onSizeChange, outputFormat, onFormatChange, disabled }) {
+  const t = useTranslations('compressor')
   const formats = [
-    { id: 'original', label: 'Original Format' },
-    { id: 'image/webp', label: 'Convert WebP' },
-    { id: 'image/jpeg', label: 'Convert JPG' },
-    { id: 'image/png', label: 'Convert PNG' },
+    { id: 'original', label: t('formats.original') },
+    { id: 'image/webp', label: t('formats.webp') },
+    { id: 'image/jpeg', label: t('formats.jpg') },
+    { id: 'image/png', label: t('formats.png') },
   ]
 
   return (
@@ -13,7 +15,7 @@ export default function TargetSizeSelector({ selectedSize, onSizeChange, outputF
       {/* Target Size Presets Row */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-          TARGET SIZE:
+          {t('targetSize.label')}
         </span>
         <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 px-2.5 py-1 rounded-lg">
           <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">{selectedSize} KB</span>
@@ -44,7 +46,9 @@ export default function TargetSizeSelector({ selectedSize, onSizeChange, outputF
       {/* Custom Size & Format Controls Row */}
       <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Custom KB:</span>
+          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
+            {t('targetSize.customKb')}
+          </span>
           <div className="relative flex-1">
             <input
               type="number"
@@ -59,7 +63,9 @@ export default function TargetSizeSelector({ selectedSize, onSizeChange, outputF
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Format:</span>
+          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
+            {t('targetSize.format')}
+          </span>
           <select
             value={outputFormat}
             onChange={(e) => onFormatChange && onFormatChange(e.target.value)}

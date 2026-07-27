@@ -20,8 +20,21 @@ const readImageAsDataURL = (file) =>
  * Changes: the `<SEO>` element is gone (metadata is server-rendered now), and
  * pdf-lib is imported dynamically inside the two functions that use it rather
  * than at module scope, so it is fetched only when a merge actually runs.
+ *
+ * `mode="imageToPdf"` (used by /jpg-to-pdf and /png-to-pdf) restricts the
+ * uploader to images only — optionally to one exact MIME type via
+ * `imageFormat` — and swaps the copy so the page matches what it promises,
+ * rather than silently also accepting PDF uploads on a page titled
+ * "JPG to PDF Converter".
  */
-export default function MergePdfImagesClient() {
+export default function MergePdfImagesClient({
+  mode = 'merge',
+  imageFormat = null,
+  pageTitle = 'Merge PDFs & Images',
+  pageSubtitle = 'Combine multiple PDF files and images into a single document. Reorder, preview, and download in seconds.',
+}) {
+  const isImageToPdf = mode === 'imageToPdf'
+  const formatLabel = imageFormat === 'image/jpeg' ? 'JPG' : imageFormat === 'image/png' ? 'PNG' : 'image'
   const [files, setFiles] = useState([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -50,6 +63,9 @@ export default function MergePdfImagesClient() {
 
   const handleFilesSelect = async (fileList) => {
     const newFiles = Array.from(fileList).filter((file) => {
+      if (isImageToPdf) {
+        return imageFormat ? file.type === imageFormat : file.type.startsWith('image/')
+      }
       const isPdf = file.type === 'application/pdf'
       const isImage = file.type.startsWith('image/')
       return isPdf || isImage
@@ -247,7 +263,7 @@ export default function MergePdfImagesClient() {
       const url = URL.createObjectURL(blob)
 
       setResult({
-        filename: 'merged-document.pdf',
+        filename: isImageToPdf ? 'converted.pdf' : 'merged-document.pdf',
         blob,
         dataUrl: url,
         size: blob.size,
@@ -292,11 +308,9 @@ export default function MergePdfImagesClient() {
         {/* Header */}
         <div className="space-y-3 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            🔗 Merge PDFs & Images
+            {isImageToPdf ? '🖼️' : '🔗'} {pageTitle}
           </h1>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-            Combine multiple PDF files and images into a single document. Reorder, preview, and download in seconds.
-          </p>
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">{pageSubtitle}</p>
         </div>
 
         {/* Main Container */}
@@ -320,7 +334,7 @@ export default function MergePdfImagesClient() {
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept=".pdf,application/pdf,image/*"
+                  accept={isImageToPdf ? imageFormat || 'image/*' : '.pdf,application/pdf,image/*'}
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -339,10 +353,12 @@ export default function MergePdfImagesClient() {
 
                   <div>
                     <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                      {isDragOver ? 'Drop files here' : 'Add PDF & Images'}
+                      {isDragOver ? 'Drop files here' : isImageToPdf ? `Add ${formatLabel} Images` : 'Add PDF & Images'}
                     </h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                      Drag and drop PDFs or images, or click to browse
+                      {isImageToPdf
+                        ? `Drag and drop ${formatLabel} images, or click to browse`
+                        : 'Drag and drop PDFs or images, or click to browse'}
                     </p>
                   </div>
 
@@ -357,7 +373,9 @@ export default function MergePdfImagesClient() {
                   </button>
 
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                    Supports PDF, JPG, PNG, WebP • Max file size: 50MB per file
+                    {isImageToPdf
+                      ? `Supports ${formatLabel} • Max file size: 50MB per file`
+                      : 'Supports PDF, JPG, PNG, WebP • Max file size: 50MB per file'}
                   </p>
                 </div>
               </div>
@@ -367,7 +385,9 @@ export default function MergePdfImagesClient() {
             {files.length > 0 && !result && (
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">📂 Files to Merge ({files.length})</h2>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                    📂 {isImageToPdf ? `Images to Convert (${files.length})` : `Files to Merge (${files.length})`}
+                  </h2>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -485,7 +505,15 @@ export default function MergePdfImagesClient() {
                       d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <span>{isProcessing ? 'Merging...' : `Merge ${files.length} File${files.length !== 1 ? 's' : ''}`}</span>
+                  <span>
+                    {isProcessing
+                      ? isImageToPdf
+                        ? 'Converting...'
+                        : 'Merging...'
+                      : isImageToPdf
+                      ? `Convert ${files.length} Image${files.length !== 1 ? 's' : ''} to PDF`
+                      : `Merge ${files.length} File${files.length !== 1 ? 's' : ''}`}
+                  </span>
                 </button>
               </div>
             )}
@@ -494,7 +522,9 @@ export default function MergePdfImagesClient() {
             {isProcessing && (
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-slate-200 dark:border-slate-800 text-center space-y-4">
                 <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{progressMsg || 'Merging files...'}</h2>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {progressMsg || (isImageToPdf ? 'Converting images...' : 'Merging files...')}
+                </h2>
               </div>
             )}
 
@@ -515,9 +545,11 @@ export default function MergePdfImagesClient() {
                     </div>
 
                     <div className="flex-1">
-                      <h2 className="text-lg font-bold">Merge Complete! ✨</h2>
+                      <h2 className="text-lg font-bold">{isImageToPdf ? 'Conversion Complete! ✨' : 'Merge Complete! ✨'}</h2>
                       <p className="text-sm text-emerald-100 mt-1">
-                        {files.length} files combined into {result.totalPages} pages
+                        {isImageToPdf
+                          ? `${files.length} image${files.length !== 1 ? 's' : ''} converted into a ${result.totalPages}-page PDF`
+                          : `${files.length} files combined into ${result.totalPages} pages`}
                       </p>
                     </div>
                   </div>
@@ -571,7 +603,7 @@ export default function MergePdfImagesClient() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                      Merge Again
+                      {isImageToPdf ? 'Convert Again' : 'Merge Again'}
                     </button>
 
                     <button
@@ -604,21 +636,27 @@ export default function MergePdfImagesClient() {
 
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">Total Files:</span>
+                    <span className="text-slate-600 dark:text-slate-300">{isImageToPdf ? 'Total Images:' : 'Total Files:'}</span>
                     <span className="font-bold text-slate-900 dark:text-white">{files.length}</span>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">PDFs:</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{files.filter((f) => f.isPdf).length}</span>
-                  </div>
+                  {!isImageToPdf && (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600 dark:text-slate-300">PDFs:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {files.filter((f) => f.isPdf).length}
+                        </span>
+                      </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">Images:</span>
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      {files.filter((f) => !f.isPdf).length}
-                    </span>
-                  </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600 dark:text-slate-300">Images:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {files.filter((f) => !f.isPdf).length}
+                        </span>
+                      </div>
+                    </>
+                  )}
 
                   <div className="border-t border-blue-300 dark:border-blue-800 pt-2 flex items-center justify-between">
                     <span className="text-slate-600 dark:text-slate-300">Total Size:</span>
@@ -633,14 +671,24 @@ export default function MergePdfImagesClient() {
               <h2 className="font-bold text-slate-900 dark:text-white text-sm">✨ Features</h2>
 
               <div className="space-y-2 text-xs">
-                {[
-                  'Merge multiple PDFs',
-                  'Add images to PDF',
-                  'Reorder files before merge',
-                  'Preview & remove files',
-                  '100% browser processing',
-                  'No uploads, completely private',
-                ].map((f) => (
+                {(isImageToPdf
+                  ? [
+                      `Convert ${formatLabel} images to PDF`,
+                      'One image per page',
+                      'Reorder images before converting',
+                      'Preview & remove images',
+                      '100% browser processing',
+                      'No uploads, completely private',
+                    ]
+                  : [
+                      'Merge multiple PDFs',
+                      'Add images to PDF',
+                      'Reorder files before merge',
+                      'Preview & remove files',
+                      '100% browser processing',
+                      'No uploads, completely private',
+                    ]
+                ).map((f) => (
                   <div key={f} className="flex items-start gap-2">
                     <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">✓</span>
                     <span className="text-slate-600 dark:text-slate-300">{f}</span>
@@ -654,18 +702,37 @@ export default function MergePdfImagesClient() {
               <h2 className="font-bold text-slate-900 dark:text-white text-sm">❓ How It Works</h2>
 
               <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                <p>
-                  <span className="font-bold">1.</span> Add PDFs & images by dragging or clicking
-                </p>
-                <p>
-                  <span className="font-bold">2.</span> Reorder files using arrow buttons
-                </p>
-                <p>
-                  <span className="font-bold">3.</span> Click &quot;Merge&quot; to combine all files
-                </p>
-                <p>
-                  <span className="font-bold">4.</span> Download your merged PDF instantly
-                </p>
+                {isImageToPdf ? (
+                  <>
+                    <p>
+                      <span className="font-bold">1.</span> Add {formatLabel} images by dragging or clicking
+                    </p>
+                    <p>
+                      <span className="font-bold">2.</span> Reorder images using arrow buttons
+                    </p>
+                    <p>
+                      <span className="font-bold">3.</span> Click &quot;Convert&quot; to build the PDF
+                    </p>
+                    <p>
+                      <span className="font-bold">4.</span> Download your PDF instantly
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <span className="font-bold">1.</span> Add PDFs & images by dragging or clicking
+                    </p>
+                    <p>
+                      <span className="font-bold">2.</span> Reorder files using arrow buttons
+                    </p>
+                    <p>
+                      <span className="font-bold">3.</span> Click &quot;Merge&quot; to combine all files
+                    </p>
+                    <p>
+                      <span className="font-bold">4.</span> Download your merged PDF instantly
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>

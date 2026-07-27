@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import BeforeAfterSlider from './BeforeAfterSlider'
 import { formatBytes, createZipArchive } from '../utils/advancedCompression'
 
 export default function ResultsSection({ images, onDownload, onCompressAnother, onClearAll }) {
+  const t = useTranslations('compressor')
   const [isZipping, setIsZipping] = useState(false)
 
   if (!images || images.length === 0) return null
@@ -50,14 +52,16 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
             <div>
               <div className="flex items-center justify-center sm:justify-start gap-2">
                 <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
-                  Processing
+                  {t('status.processing')}
                 </span>
                 <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                  {doneImages.length} of {images.length} {images.length === 1 ? 'file' : 'files'} done
+                  {t('status.filesDone', { done: doneImages.length, total: images.length })}
                 </span>
               </div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                {processingImages.length === 1 ? processingImages[0].progressLabel || 'Compressing...' : `Compressing ${processingImages.length} files...`}
+                {processingImages.length === 1
+                  ? processingImages[0].progressLabel || t('dropzone.compressing')
+                  : t('status.compressingCount', { count: processingImages.length })}
               </h3>
             </div>
           </div>
@@ -67,22 +71,23 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
           <div className="space-y-1 text-center sm:text-left">
             <div className="flex items-center justify-center sm:justify-start gap-2">
               <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wider">
-                SUCCESS
+                {t('status.success')}
               </span>
               <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                {images.length} {images.length === 1 ? 'File' : 'Files'} Processed
+                {t('status.filesProcessed', { count: images.length })}
               </span>
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              Saved {formatBytes(totalSavings)}{' '}
+              {t('status.saved', { size: formatBytes(totalSavings) })}{' '}
               <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-lg sm:text-xl">
-                ({overallRatio}% smaller)
+                {t('status.savedRatio', { ratio: overallRatio })}
               </span>
             </h3>
 
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Original: <span className="font-semibold">{formatBytes(totalOriginalSize)}</span> → Compressed:{' '}
+              {t('status.originalLabel')} <span className="font-semibold">{formatBytes(totalOriginalSize)}</span> →{' '}
+              {t('status.compressedLabel')}{' '}
               <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatBytes(totalCompressedSize)}</span>
             </p>
           </div>
@@ -96,7 +101,7 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
                 disabled={isZipping}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-sm text-xs transition-all flex items-center justify-center gap-1.5"
               >
-                {isZipping ? 'Zipping...' : 'Download All (ZIP)'}
+                {isZipping ? t('actions.zipping') : t('actions.downloadAllZip')}
               </button>
             )}
 
@@ -108,7 +113,7 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span>Compress More</span>
+              <span>{t('actions.compressMore')}</span>
             </button>
           </div>
         </div>
@@ -125,13 +130,13 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="space-y-1 flex-1">
                 <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate max-w-sm">
-                  {img.originalFile?.name || 'Processed File'}
+                  {img.originalFile?.name || t('item.processedFile')}
                 </h4>
                 {img.isCompressing ? (
                   <div className="space-y-1 max-w-xs">
                     <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                       <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin shrink-0" />
-                      <span>{img.progressLabel || 'Compressing...'}</span>
+                      <span>{img.progressLabel || t('dropzone.compressing')}</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                       <div
@@ -142,7 +147,9 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <span>Original: {formatBytes(img.originalSize)}</span>
+                    <span>
+                      {t('status.originalLabel')} {formatBytes(img.originalSize)}
+                    </span>
                     {img.compressedSize && (
                       <>
                         <span>→</span>
@@ -168,7 +175,7 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  <span>Download</span>
+                  <span>{t('actions.download')}</span>
                 </button>
               )}
             </div>
@@ -176,7 +183,14 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
             {/* Error handling if any */}
             {img.error && (
               <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-300 text-xs font-semibold">
-                Compression note: {img.error}
+                {t('item.compressionNote', { error: img.error })}
+              </div>
+            )}
+
+            {/* Animated GIFs can be decoded but not re-encoded as GIF in any browser — flag it rather than silently flattening to a static image */}
+            {img.isAnimatedGif && !img.error && (
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-semibold">
+                {t('item.animatedGifWarning')}
               </div>
             )}
 
@@ -185,8 +199,8 @@ export default function ResultsSection({ images, onDownload, onCompressAnother, 
               <BeforeAfterSlider
                 beforeImage={img.preview}
                 afterImage={img.compressedDataUrl}
-                beforeLabel={`Original (${formatBytes(img.originalSize)})`}
-                afterLabel={`Compressed (${formatBytes(img.compressedSize)})`}
+                beforeLabel={`${t('slider.original')} (${formatBytes(img.originalSize)})`}
+                afterLabel={`${t('slider.compressed')} (${formatBytes(img.compressedSize)})`}
               />
             )}
           </div>

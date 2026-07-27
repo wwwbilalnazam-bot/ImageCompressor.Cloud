@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import { formatBytes } from '../../utils/advancedCompression'
 import { sanitizeBaseName } from '../../utils/pdfSplitEngine'
 import {
@@ -16,13 +17,6 @@ import { compressPdfFaq } from '../../content/faq/compress-pdf'
 import AdBanner from '../AdBanner'
 import FaqList from '../FaqList'
 
-const LEVEL_LIST = [
-  { id: 'auto', label: 'Automatic', desc: 'Smart default — recommended for most PDFs' },
-  { id: 'low', ...COMPRESSION_LEVELS.low },
-  { id: 'medium', ...COMPRESSION_LEVELS.medium },
-  { id: 'high', ...COMPRESSION_LEVELS.high },
-]
-
 const AUTO_CLEAR_MS = 20 * 60 * 1000
 
 /**
@@ -35,6 +29,18 @@ const AUTO_CLEAR_MS = 20 * 60 * 1000
  * the schema client-side, where crawlers without JS never saw it).
  */
 export default function CompressPdfClient() {
+  const t = useTranslations('compressPdf')
+  // Low/Medium/High labels+descriptions still come from COMPRESSION_LEVELS
+  // (utils/pdfCompressionEngine.js) in English only — that's inside the
+  // collapsed "Advanced Options" section most visitors never open, so it's a
+  // documented, lower-priority gap rather than an oversight. "Automatic" is
+  // translated since it's the default, always-visible option.
+  const LEVEL_LIST = [
+    { id: 'auto', label: t('autoLabel'), desc: t('autoDesc') },
+    { id: 'low', ...COMPRESSION_LEVELS.low },
+    { id: 'medium', ...COMPRESSION_LEVELS.medium },
+    { id: 'high', ...COMPRESSION_LEVELS.high },
+  ]
   const [file, setFile] = useState(null)
   const [arrayBuffer, setArrayBuffer] = useState(null)
   const [totalPages, setTotalPages] = useState(0)
@@ -60,6 +66,24 @@ export default function CompressPdfClient() {
   const resultRef = useRef(null)
   const autoClearTimerRef = useRef(null)
 
+  // Defined before the effects below so the auto-clear timer's setTimeout
+  // callback isn't referencing a const ahead of its declaration.
+  const resetAll = () => {
+    if (resultRef.current) URL.revokeObjectURL(resultRef.current.dataUrl)
+    setFile(null)
+    setArrayBuffer(null)
+    setTotalPages(0)
+    setFileError(null)
+    setResult(null)
+    setCompressError(null)
+    setIsProcessing(false)
+    setGrayscale(false)
+    setRemoveMetadata(false)
+    setOptimizeForWeb(false)
+    setShowAdvanced(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   useEffect(() => {
     resultRef.current = result
   }, [result])
@@ -76,7 +100,6 @@ export default function CompressPdfClient() {
     if (result) {
       autoClearTimerRef.current = setTimeout(() => resetAll(), AUTO_CLEAR_MS)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result])
 
   const activeLevelId = useMemo(() => {
@@ -117,7 +140,7 @@ export default function CompressPdfClient() {
       setShowAdvanced(false)
     } catch (err) {
       console.error('PDF load error:', err)
-      setFileError(err instanceof PdfValidationError ? err.message : 'Could not read this PDF file.')
+      setFileError(err instanceof PdfValidationError ? err.message : t('defaultFileError'))
     } finally {
       setIsValidating(false)
     }
@@ -138,7 +161,7 @@ export default function CompressPdfClient() {
 
     setIsProcessing(true)
     setCompressError(null)
-    setProgressMsg('Preparing...')
+    setProgressMsg(t('preparing'))
     setProgressPct(0)
     setResult(null)
 
@@ -154,7 +177,7 @@ export default function CompressPdfClient() {
         freshDoc,
         { quality, maxDimension: effectiveMaxDimension, grayscale, removeMetadata: effectiveRemoveMetadata },
         (current, total) => {
-          setProgressMsg(total ? `Compressing image ${current} of ${total}...` : 'Optimizing document...')
+          setProgressMsg(total ? t('compressingImage', { current, total }) : t('optimizingDocument'))
           setProgressPct(total ? Math.round((current / total) * 100) : 100)
         }
       )
@@ -182,7 +205,7 @@ export default function CompressPdfClient() {
       })
     } catch (err) {
       console.error('Compression error:', err)
-      setCompressError(err.message || 'Failed to compress the PDF. Please try again.')
+      setCompressError(err.message || t('defaultCompressError'))
     } finally {
       setIsProcessing(false)
       setProgressMsg('')
@@ -205,22 +228,6 @@ export default function CompressPdfClient() {
     setCompressError(null)
   }
 
-  const resetAll = () => {
-    if (resultRef.current) URL.revokeObjectURL(resultRef.current.dataUrl)
-    setFile(null)
-    setArrayBuffer(null)
-    setTotalPages(0)
-    setFileError(null)
-    setResult(null)
-    setCompressError(null)
-    setIsProcessing(false)
-    setGrayscale(false)
-    setRemoveMetadata(false)
-    setOptimizeForWeb(false)
-    setShowAdvanced(false)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
   const dpiId = useMemo(() => {
     const preset = DPI_PRESETS.find((p) => p.maxDimension === maxDimension)
     return preset ? preset.id : 'none'
@@ -231,11 +238,9 @@ export default function CompressPdfClient() {
       <div className="space-y-6">
         <div className="space-y-3 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            🗜️ Compress PDF
+            🗜️ {t('title')}
           </h1>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-            Shrink PDF file size while keeping text sharp and readable — entirely in your browser.
-          </p>
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">{t('subtitle')}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -279,11 +284,13 @@ export default function CompressPdfClient() {
 
                   <div>
                     <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                      {isValidating ? 'Reading PDF...' : isDragOver ? 'Drop your PDF here' : 'Upload a PDF to compress'}
+                      {isValidating
+                        ? t('dropzone.readingPdf')
+                        : isDragOver
+                        ? t('dropzone.dropHere')
+                        : t('dropzone.uploadPrompt')}
                     </h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                      Drag and drop a PDF, or click to browse
-                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('dropzone.dragDropHint')}</p>
                   </div>
 
                   {isValidating ? (
@@ -296,13 +303,11 @@ export default function CompressPdfClient() {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                      <span>Select PDF</span>
+                      <span>{t('dropzone.selectPdf')}</span>
                     </button>
                   )}
 
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                    PDF only • up to 300MB • 100% processed in your browser
-                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{t('dropzone.sizeHint')}</p>
                 </div>
 
                 {fileError && (
@@ -346,13 +351,13 @@ export default function CompressPdfClient() {
                     onClick={resetAll}
                     className="px-3 py-2 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex-shrink-0"
                   >
-                    Change File
+                    {t('changeFile')}
                   </button>
                 </div>
 
                 {/* Compression level selector */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 sm:p-4 space-y-3">
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">Compression level</h2>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">{t('compressionLevel')}</h2>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {LEVEL_LIST.map((lvl) => (
                       <button
@@ -371,7 +376,7 @@ export default function CompressPdfClient() {
                     ))}
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-                    {LEVEL_LIST.find((l) => l.id === activeLevelId)?.desc || 'Custom settings (see Advanced Options)'}
+                    {LEVEL_LIST.find((l) => l.id === activeLevelId)?.desc || t('customSettingsDesc')}
                   </p>
 
                   {/* Advanced options toggle */}
@@ -380,7 +385,7 @@ export default function CompressPdfClient() {
                     onClick={() => setShowAdvanced((v) => !v)}
                     className="w-full flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400 pt-2 border-t border-slate-200 dark:border-slate-700"
                   >
-                    <span>Advanced Options</span>
+                    <span>{t('advancedOptions')}</span>
                     <svg
                       className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
                       fill="none"
@@ -395,7 +400,7 @@ export default function CompressPdfClient() {
                     <div className="space-y-4 pt-2">
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
-                          <label className="font-semibold text-slate-700 dark:text-slate-300">Image quality</label>
+                          <label className="font-semibold text-slate-700 dark:text-slate-300">{t('imageQuality')}</label>
                           <span className="text-slate-500 dark:text-slate-400">{Math.round(quality * 100)}%</span>
                         </div>
                         <input
@@ -411,7 +416,7 @@ export default function CompressPdfClient() {
 
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          Max image resolution
+                          {t('maxImageResolution')}
                         </label>
                         <select
                           value={dpiId}
@@ -437,7 +442,7 @@ export default function CompressPdfClient() {
                             onChange={(e) => setGrayscale(e.target.checked)}
                             className="w-4 h-4 accent-emerald-600"
                           />
-                          Convert images to grayscale
+                          {t('grayscaleLabel')}
                         </label>
                         <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                           <input
@@ -446,7 +451,7 @@ export default function CompressPdfClient() {
                             onChange={(e) => setRemoveMetadata(e.target.checked)}
                             className="w-4 h-4 accent-emerald-600"
                           />
-                          Remove metadata (title, author, keywords...)
+                          {t('removeMetadataLabel')}
                         </label>
                         <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                           <input
@@ -455,7 +460,7 @@ export default function CompressPdfClient() {
                             onChange={(e) => setOptimizeForWeb(e.target.checked)}
                             className="w-4 h-4 accent-emerald-600"
                           />
-                          Optimize for web (caps resolution + strips metadata)
+                          {t('optimizeForWebLabel')}
                         </label>
                       </div>
                     </div>
@@ -470,7 +475,9 @@ export default function CompressPdfClient() {
 
                 {isProcessing ? (
                   <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800 text-center space-y-3">
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white">{progressMsg || 'Compressing...'}</h2>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                      {progressMsg || t('preparing')}
+                    </h2>
                     <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                       <div
                         className="h-full bg-emerald-600 transition-all duration-200"
@@ -487,7 +494,7 @@ export default function CompressPdfClient() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7m14-6l-7 7-7-7" />
                     </svg>
-                    <span>Compress PDF</span>
+                    <span>{t('compressButton')}</span>
                   </button>
                 )}
               </div>
@@ -509,15 +516,17 @@ export default function CompressPdfClient() {
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <h2 className="text-lg font-bold">Compression Complete! ✨</h2>
+                      <h2 className="text-lg font-bold">{t('result.title')} ✨</h2>
                       <p className="text-sm text-emerald-100 mt-1">
                         {result.reduction > 0
-                          ? `Reduced by ${result.reduction}% — ${result.imagesRecompressed} of ${result.totalImages} image${
-                              result.totalImages !== 1 ? 's' : ''
-                            } optimized`
+                          ? t('result.reducedBy', {
+                              pct: result.reduction,
+                              done: result.imagesRecompressed,
+                              total: result.totalImages,
+                            })
                           : result.totalImages === 0
-                          ? 'This PDF has no compressible images — text-based PDFs are already highly optimized.'
-                          : 'This file was already well-optimized — no further reduction was possible.'}
+                          ? t('result.noCompressibleImages')
+                          : t('result.alreadyOptimized')}
                       </p>
                     </div>
                   </div>
@@ -526,13 +535,13 @@ export default function CompressPdfClient() {
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="text-center p-4 rounded-xl bg-slate-100 dark:bg-slate-800">
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Original</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{t('result.original')}</p>
                       <p className="text-lg font-bold text-slate-700 dark:text-slate-300">
                         {formatBytes(result.originalSize)}
                       </p>
                     </div>
                     <div className="text-center p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Compressed</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">{t('result.compressed')}</p>
                       <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
                         {formatBytes(result.compressedSize)}
                       </p>
@@ -551,9 +560,7 @@ export default function CompressPdfClient() {
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Text, fonts, links and page layout are always preserved — only embedded images are recompressed.
-                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('result.preservedNote')}</p>
 
                   <div className="grid grid-cols-2 gap-3">
                     <button
@@ -561,7 +568,7 @@ export default function CompressPdfClient() {
                       onClick={clearResult}
                       className="py-3 px-4 rounded-xl font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-sm"
                     >
-                      Try Another Level
+                      {t('result.tryAnotherLevel')}
                     </button>
                     <button
                       type="button"
@@ -576,7 +583,7 @@ export default function CompressPdfClient() {
                           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                         />
                       </svg>
-                      Download
+                      {t('result.download')}
                     </button>
                   </div>
 
@@ -585,7 +592,7 @@ export default function CompressPdfClient() {
                     onClick={resetAll}
                     className="w-full py-2.5 rounded-xl font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-all text-sm"
                   >
-                    Compress Another PDF
+                    {t('result.compressAnother')}
                   </button>
                 </div>
               </div>
@@ -596,20 +603,20 @@ export default function CompressPdfClient() {
           <div className="space-y-4">
             {file && !result && (
               <div className="bg-blue-50 dark:bg-blue-950/30 rounded-2xl p-4 border border-blue-200 dark:border-blue-900 space-y-3">
-                <h2 className="font-bold text-slate-900 dark:text-white text-sm">📊 Summary</h2>
+                <h2 className="font-bold text-slate-900 dark:text-white text-sm">📊 {t('summary.title')}</h2>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">File Size:</span>
+                    <span className="text-slate-600 dark:text-slate-300">{t('summary.fileSize')}</span>
                     <span className="font-bold text-slate-900 dark:text-white">{formatBytes(file.size)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">Pages:</span>
+                    <span className="text-slate-600 dark:text-slate-300">{t('summary.pages')}</span>
                     <span className="font-bold text-slate-900 dark:text-white">{totalPages}</span>
                   </div>
                   <div className="border-t border-blue-300 dark:border-blue-800 pt-2 flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">Level:</span>
+                    <span className="text-slate-600 dark:text-slate-300">{t('summary.level')}</span>
                     <span className="font-bold text-slate-900 dark:text-white">
-                      {LEVEL_LIST.find((l) => l.id === activeLevelId)?.label || 'Custom'}
+                      {LEVEL_LIST.find((l) => l.id === activeLevelId)?.label || t('summary.custom')}
                     </span>
                   </div>
                 </div>
@@ -618,25 +625,17 @@ export default function CompressPdfClient() {
 
             {/* Privacy note */}
             <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-900 space-y-2">
-              <h2 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5">🔒 Privacy</h2>
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Your files are automatically deleted after processing. Everything runs 100% in your browser — nothing is
-                ever uploaded to a server.
-              </p>
+              <h2 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5">
+                🔒 {t('privacy.title')}
+              </h2>
+              <p className="text-xs text-slate-600 dark:text-slate-300">{t('privacy.note')}</p>
             </div>
 
             {/* Features */}
             <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 space-y-3">
-              <h2 className="font-bold text-slate-900 dark:text-white text-sm">✨ Features</h2>
+              <h2 className="font-bold text-slate-900 dark:text-white text-sm">✨ {t('features.title')}</h2>
               <div className="space-y-2 text-xs">
-                {[
-                  'Automatic, Low, Medium & High presets',
-                  'Preserves text, fonts and links',
-                  'Grayscale, DPI & metadata controls',
-                  'Before/after size comparison',
-                  'Handles files up to 300MB',
-                  '100% private, browser-based',
-                ].map((f) => (
+                {t.raw('features.items').map((f) => (
                   <div key={f} className="flex items-start gap-2">
                     <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">✓</span>
                     <span className="text-slate-600 dark:text-slate-300">{f}</span>
@@ -652,14 +651,8 @@ export default function CompressPdfClient() {
 
         {/* SEO content section */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">How PDF compression works</h2>
-          <p>
-            Most oversized PDFs are large because of embedded photos or scanned pages, not text. This tool finds every
-            embedded JPEG image in your document — including ones reused across multiple pages — and re-encodes each one
-            at a lower quality and resolution based on the level you choose. Vector text, fonts, and links are part of
-            the PDF&apos;s structure rather than an image, so they&apos;re left completely untouched, keeping your
-            document sharp and readable after compression.
-          </p>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t('howItWorks.title')}</h2>
+          <p>{t('howItWorks.body')}</p>
         </div>
       </div>
 

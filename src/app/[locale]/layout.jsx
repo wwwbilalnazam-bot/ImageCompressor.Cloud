@@ -66,13 +66,12 @@ export default async function LocaleLayout({ children, params }) {
           Applies the saved theme before first paint. Without this the page
           renders light, then the header's useEffect adds `.dark` after
           hydration — a visible flash for every returning dark-mode visitor.
+          Uses next/script's beforeInteractive strategy (not a raw <script>
+          tag) so Next.js injects and runs it correctly during SSR/hydration.
         */}
-        <script
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}`,
-          }}
-        />
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`try{if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}`}
+        </Script>
       </head>
       <body className="font-sans selection:bg-emerald-500 selection:text-white">
         <JsonLd data={[organizationSchema(), webSiteSchema(locale)]} />

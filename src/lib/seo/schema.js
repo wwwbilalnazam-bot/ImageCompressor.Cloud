@@ -58,6 +58,22 @@ export function softwareApplicationSchema(route, locale) {
   }
 }
 
+/** Article, for comparison/explainer pages under /compare/*. */
+export function articleSchema(route, locale) {
+  const seo = seoFor(route, locale)
+  const url = absoluteUrl(localePath(locale, route.slug))
+
+  return {
+    '@context': CONTEXT,
+    '@type': 'Article',
+    headline: seo.title,
+    description: seo.description,
+    url,
+    inLanguage: locale,
+    publisher: { '@id': `${site.url}/#organization` },
+  }
+}
+
 /** FAQPage, built from the same array the visible FAQ list renders. */
 export function faqPageSchema(items) {
   if (!items || items.length === 0) return null

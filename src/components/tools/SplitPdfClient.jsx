@@ -32,8 +32,17 @@ const AUTO_CLEAR_MS = 20 * 60 * 1000 // privacy: auto-clear results after 20 min
  * Split PDF — ported from pages/SplitPdfPage.jsx.
  * Only change: the `<SEO>` element is gone; metadata is server-rendered from
  * this route's entry in src/config/routes.js.
+ *
+ * `lockMode` (used by /remove-pdf-pages) starts the tool in one mode and
+ * hides the mode switcher, presenting the existing "remove" mode as its own
+ * focused page instead of the general 5-mode split tool — no new
+ * PDF-manipulation logic, this mode already worked.
  */
-export default function SplitPdfClient() {
+export default function SplitPdfClient({
+  lockMode = null,
+  pageTitle = 'Split PDF',
+  pageSubtitle = 'Extract pages, split by range, break into equal parts, or remove pages — all in your browser.',
+}) {
   const [file, setFile] = useState(null)
   const [isValidating, setIsValidating] = useState(false)
   const [fileError, setFileError] = useState(null)
@@ -44,7 +53,7 @@ export default function SplitPdfClient() {
   const [pages, setPages] = useState([]) // [{ pageNumber, thumbnail, error }]
   const [selectedOrder, setSelectedOrder] = useState([]) // page numbers, in chosen order
 
-  const [splitMode, setSplitMode] = useState('extract')
+  const [splitMode, setSplitMode] = useState(lockMode || 'extract')
   const [rangesInput, setRangesInput] = useState('')
   const [equalPartsSize, setEqualPartsSize] = useState(5)
 
@@ -115,7 +124,9 @@ export default function SplitPdfClient() {
         error: null,
       }))
       setPages(initialPages)
-      setSelectedOrder(initialPages.map((p) => p.pageNumber))
+      // "Selected" means "to remove" in remove mode, so it must start empty
+      // there — starting full would mean "remove every page" by default.
+      setSelectedOrder(splitMode === 'remove' ? [] : initialPages.map((p) => p.pageNumber))
       setEqualPartsSize((prev) => Math.min(prev || 5, pageCount))
 
       stopThumbGenRef.current = generatePageThumbnails(pdfjsDoc, pageCount, (pageNum, dataUrl, err) => {
@@ -396,7 +407,7 @@ export default function SplitPdfClient() {
     setTotalPages(0)
     setPages([])
     setSelectedOrder([])
-    setSplitMode('extract')
+    setSplitMode(lockMode || 'extract')
     setRangesInput('')
     setEqualPartsSize(5)
     setResults(null)
@@ -413,11 +424,9 @@ export default function SplitPdfClient() {
       <div className="space-y-6">
         <div className="space-y-3 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            ✂️ Split PDF
+            {lockMode === 'remove' ? '🗑️' : '✂️'} {pageTitle}
           </h1>
-          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-            Extract pages, split by range, break into equal parts, or remove pages — all in your browser.
-          </p>
+          <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">{pageSubtitle}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -538,29 +547,31 @@ export default function SplitPdfClient() {
                   </div>
                 )}
 
-                {/* Split mode selector */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 sm:p-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    {SPLIT_MODES.map((mode) => (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => handleModeChange(mode.id)}
-                        title={mode.desc}
-                        className={`py-2.5 px-2 rounded-xl border text-center font-bold text-xs transition-all ${
-                          splitMode === mode.id
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
-                            : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-emerald-500'
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
+                {/* Split mode selector — hidden when the page is locked to one mode */}
+                {!lockMode && (
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 sm:p-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {SPLIT_MODES.map((mode) => (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => handleModeChange(mode.id)}
+                          title={mode.desc}
+                          className={`py-2.5 px-2 rounded-xl border text-center font-bold text-xs transition-all ${
+                            splitMode === mode.id
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-emerald-500'
+                          }`}
+                        >
+                          {mode.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">
+                      {SPLIT_MODES.find((m) => m.id === splitMode)?.desc}
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 text-center">
-                    {SPLIT_MODES.find((m) => m.id === splitMode)?.desc}
-                  </p>
-                </div>
+                )}
 
                 {/* Mode-specific controls */}
                 {splitMode === 'ranges' && (
@@ -935,7 +946,7 @@ export default function SplitPdfClient() {
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <h2 className="text-lg font-bold">Split Complete! ✨</h2>
+                      <h2 className="text-lg font-bold">{lockMode === 'remove' ? 'Pages Removed! ✨' : 'Split Complete! ✨'}</h2>
                       <p className="text-sm text-emerald-100 mt-1">
                         {results.length} file{results.length !== 1 ? 's' : ''} generated from {file?.name}
                       </p>

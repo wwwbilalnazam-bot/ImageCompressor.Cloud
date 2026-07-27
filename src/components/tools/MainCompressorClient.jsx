@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { compressToTargetSize } from '../../utils/advancedCompression'
 import { validatePdfFile, compressPdf, getAutomaticLevel } from '../../utils/pdfCompressionEngine'
+import { isAnimatedGif } from '../../utils/gifUtils'
 import Uploader from '../Uploader'
 import ResultsSection from '../ResultsSection'
 import AdBanner from '../AdBanner'
@@ -20,8 +22,16 @@ import AdBanner from '../AdBanner'
 export default function MainCompressorClient({
   defaultTargetSize = 100,
   pageTitle = 'Compress Files',
+  // Optional: a translation key under the `compressor` namespace for the H1.
+  // Only the home route sets this today (the "one tool localized end-to-end"
+  // proof of pattern) — other routes keep the plain English `pageTitle` prop
+  // until they get the same treatment, which is a routes.js-only change once
+  // this pattern is proven out.
+  titleKey = null,
   initialFormat = 'original',
 }) {
+  const t = useTranslations('compressor')
+  const resolvedTitle = titleKey ? t(titleKey) : pageTitle
   const [images, setImages] = useState([])
   const [targetSize, setTargetSize] = useState(defaultTargetSize)
   const [outputFormat, setOutputFormat] = useState(initialFormat)
@@ -41,16 +51,23 @@ export default function MainCompressorClient({
       setIsProcessing(true)
 
       const fileArray = Array.from(files)
-      const supportedImageFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif']
+      const supportedImageFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif', 'image/gif']
 
       const newItems = []
       for (const file of fileArray) {
         const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf')
-        const isImage = supportedImageFormats.includes(file.type) || /\.(jpe?g|png|webp|avif)$/i.test(file.name)
+        const isImage = supportedImageFormats.includes(file.type) || /\.(jpe?g|png|webp|avif|gif)$/i.test(file.name)
 
         if (!isPdf && !isImage) {
           continue
         }
+
+        const isGif = file.type === 'image/gif' || /\.gif$/i.test(file.name)
+        // Canvas can decode a GIF but has never been able to encode one in any
+        // browser, so compressing a GIF here always re-encodes it as another
+        // format — which flattens animation to one frame. Detected up front
+        // (not assumed) so the UI can say so rather than silently dropping it.
+        const animated = isGif ? isAnimatedGif(await file.arrayBuffer()) : false
 
         const fileId = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
         const previewUrl = isPdf ? null : URL.createObjectURL(file)
@@ -71,6 +88,7 @@ export default function MainCompressorClient({
           ratio: 0,
           targetSize: targetSize,
           isPdf: isPdf,
+          isAnimatedGif: animated,
         })
       }
 
@@ -141,7 +159,13 @@ export default function MainCompressorClient({
                 img.id === item.id ? { ...img, progressLabel: 'Compressing image...', progressPct: 50 } : img
               )
             )
-            const result = await compressToTargetSize(item.originalFile, targetSize, outputFormat)
+            // Canvas has no GIF encoder in any browser, so "original format"
+            // can't mean "stay GIF" the way it does for JPG/PNG/WebP — resolve
+            // it to PNG explicitly instead of letting canvas.toBlob receive an
+            // unsupported 'image/gif' target it was never going to honor.
+            const isGifItem = item.format === 'image/gif' || /\.gif$/i.test(item.originalFile.name)
+            const effectiveFormat = isGifItem && outputFormat === 'original' ? 'image/png' : outputFormat
+            const result = await compressToTargetSize(item.originalFile, targetSize, effectiveFormat)
             const compressedUrl = URL.createObjectURL(result.blob)
 
             setImages((prev) =>
@@ -212,11 +236,9 @@ export default function MainCompressorClient({
         {/* Header Title */}
         <div className="space-y-1">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            {pageTitle}
+            {resolvedTitle}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-            Compress PNG, JPG, WebP, AVIF & PDF files with 100% browser privacy.
-          </p>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">{t('subtitle')}</p>
         </div>
 
         {/* MAIN TOOL WORKSPACE */}

@@ -24,6 +24,8 @@
       "compress": "Compress",
       "convert": "Convert",
       "pdf": "PDF Tools",
+      "compare": "Compare",
+      "guides": "Guides",
       "company": "Company"
     }
   },
@@ -32,5 +34,120 @@
     "title": "Page not found",
     "body": "The page you were looking for doesn't exist, or has moved. Pick a tool below to keep going.",
     "cta": "Back to the compressor"
+  },
+  "compressor": {
+    "title": "Compress Files",
+    "subtitle": "Compress PNG, JPG, WebP, AVIF, GIF & PDF files with 100% browser privacy.",
+    "dropzone": {
+      "releaseToCompress": "Release files to compress",
+      "dragDrop": "Drag & drop images or PDFs here",
+      "subtitle": "Select images or PDF documents from your device",
+      "compressing": "Compressing...",
+      "selectFiles": "Select Files"
+    },
+    "targetSize": {
+      "label": "TARGET SIZE:",
+      "customKb": "Custom KB:",
+      "format": "Format:"
+    },
+    "formats": {
+      "original": "Original Format",
+      "webp": "Convert WebP",
+      "jpg": "Convert JPG",
+      "png": "Convert PNG"
+    },
+    "status": {
+      "processing": "Processing",
+      "filesDone": "{done} of {total} {total, plural, one {file} other {files}} done",
+      "compressingCount": "Compressing {count} files...",
+      "success": "SUCCESS",
+      "filesProcessed": "{count} {count, plural, one {File} other {Files}} Processed",
+      "saved": "Saved {size}",
+      "savedRatio": "({ratio}% smaller)",
+      "originalLabel": "Original:",
+      "compressedLabel": "Compressed:"
+    },
+    "actions": {
+      "zipping": "Zipping...",
+      "downloadAllZip": "Download All (ZIP)",
+      "compressMore": "Compress More",
+      "download": "Download"
+    },
+    "item": {
+      "processedFile": "Processed File",
+      "compressionNote": "Compression note: {error}",
+      "animatedGifWarning": "This GIF is animated — the compressed result is a static image (first frame only). Animation isn't preserved."
+    },
+    "slider": {
+      "original": "Original",
+      "compressed": "Compressed"
+    }
+  },
+  "compressPdf": {
+    "title": "Compress PDF",
+    "subtitle": "Shrink PDF file size while keeping text sharp and readable — entirely in your browser.",
+    "dropzone": {
+      "readingPdf": "Reading PDF...",
+      "dropHere": "Drop your PDF here",
+      "uploadPrompt": "Upload a PDF to compress",
+      "dragDropHint": "Drag and drop a PDF, or click to browse",
+      "selectPdf": "Select PDF",
+      "sizeHint": "PDF only • up to 300MB • 100% processed in your browser"
+    },
+    "changeFile": "Change File",
+    "compressionLevel": "Compression level",
+    "autoLabel": "Automatic",
+    "autoDesc": "Smart default — recommended for most PDFs",
+    "customSettingsDesc": "Custom settings (see Advanced Options)",
+    "advancedOptions": "Advanced Options",
+    "imageQuality": "Image quality",
+    "maxImageResolution": "Max image resolution",
+    "grayscaleLabel": "Convert images to grayscale",
+    "removeMetadataLabel": "Remove metadata (title, author, keywords...)",
+    "optimizeForWebLabel": "Optimize for web (caps resolution + strips metadata)",
+    "preparing": "Preparing...",
+    "compressingImage": "Compressing image {current} of {total}...",
+    "optimizingDocument": "Optimizing document...",
+    "compressButton": "Compress PDF",
+    "defaultFileError": "Could not read this PDF file.",
+    "defaultCompressError": "Failed to compress the PDF. Please try again.",
+    "result": {
+      "title": "Compression Complete!",
+      "reducedBy": "Reduced by {pct}% — {done} of {total} {total, plural, one {image} other {images}} optimized",
+      "noCompressibleImages": "This PDF has no compressible images — text-based PDFs are already highly optimized.",
+      "alreadyOptimized": "This file was already well-optimized — no further reduction was possible.",
+      "original": "Original",
+      "compressed": "Compressed",
+      "preservedNote": "Text, fonts, links and page layout are always preserved — only embedded images are recompressed.",
+      "tryAnotherLevel": "Try Another Level",
+      "download": "Download",
+      "compressAnother": "Compress Another PDF"
+    },
+    "summary": {
+      "title": "Summary",
+      "fileSize": "File Size:",
+      "pages": "Pages:",
+      "level": "Level:",
+      "custom": "Custom"
+    },
+    "privacy": {
+      "title": "Privacy",
+      "note": "Your files are automatically deleted after processing. Everything runs 100% in your browser — nothing is ever uploaded to a server."
+    },
+    "features": {
+      "title": "Features",
+      "items": [
+        "Automatic, Low, Medium & High presets",
+        "Preserves text, fonts and links",
+        "Grayscale, DPI & metadata controls",
+        "Before/after size comparison",
+        "Handles files up to 300MB",
+        "100% private, browser-based"
+      ]
+    },
+    "howItWorks": {
+      "title": "How PDF compression works",
+      "body": "Most oversized PDFs are large because of embedded photos or scanned pages, not text. This tool finds every embedded JPEG image in your document — including ones reused across multiple pages — and re-encodes each one at a lower quality and resolution based on the level you choose. Vector text, fonts, and links are part of the PDF's structure rather than an image, so they're left completely untouched, keeping your document sharp and readable after compression."
+    }
   }
 }
