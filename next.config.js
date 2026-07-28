@@ -35,6 +35,14 @@ const nextConfig = {
       canvas: './src/lib/empty-module.js',
     },
   },
+  // Same stub, for webpack builds (Turbopack's `resolveAlias` above doesn't
+  // apply when building with `--webpack` — needed as a fallback since
+  // Vercel's platform-side build tooling hit an unrelated internal error
+  // specifically parsing Turbopack's production output).
+  webpack: (config) => {
+    config.resolve.alias.canvas = false
+    return config
+  },
   async redirects() {
     return pdfToolsRedirects
   },

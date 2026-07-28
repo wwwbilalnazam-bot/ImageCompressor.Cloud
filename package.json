@@ -5,7 +5,7 @@
   "description": "Free online image compressor - compress PNG, JPEG, WebP & AVIF instantly",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint ."
   },
