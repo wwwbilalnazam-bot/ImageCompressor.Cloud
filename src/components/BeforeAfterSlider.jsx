@@ -4,7 +4,20 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, beforeLabel
   const [sliderPosition, setSliderPosition] = useState(50)
   const [isDragging, setIsDragging] = useState(false)
   const [viewMode, setViewMode] = useState('split') // 'split' | 'side-by-side'
-  const containerRef = useRef(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth)
+      }
+    }
+    updateWidth()
+    const observer = new ResizeObserver(updateWidth)
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
 
   const handleMove = useCallback((clientX) => {
     if (!containerRef.current) return
@@ -138,7 +151,7 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, beforeLabel
             <div
               className="absolute inset-0 h-full"
               style={{
-                width: containerRef.current ? `${containerRef.current.clientWidth}px` : '100%',
+                width: containerWidth ? `${containerWidth}px` : '100%',
               }}
             >
               <img

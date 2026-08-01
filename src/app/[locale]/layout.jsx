@@ -14,6 +14,7 @@ import { organizationSchema, webSiteSchema } from '../../lib/seo/schema'
 import JsonLd from '../../components/JsonLd'
 import HeaderClient from '../../components/layout/HeaderClient'
 import Footer from '../../components/layout/Footer'
+import ScrollToTop from '../../components/layout/ScrollToTop'
 
 /**
  * Third-party integrations are env-var gated. With no value set they render
@@ -77,6 +78,7 @@ export default async function LocaleLayout({ children, params }) {
         <JsonLd data={[organizationSchema(), webSiteSchema(locale)]} />
 
         <NextIntlClientProvider>
+          <ScrollToTop />
           <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col">
             <HeaderClient />
             <main className="flex-1 flex flex-col">{children}</main>

@@ -90,38 +90,80 @@ export async function convertFile(file, targetFormat, options = {}) {
     else onProgress?.(60 + Math.round(percent * 0.4))
   }
 
-  // --- Office -> PDF (backend) ---
+  // --- Office -> PDF (backend with browser client-side fallback) ---
   if (isWordInput && targetFormat === 'application/pdf') {
-    onStatus?.('Uploading to conversion service...')
-    const pdfBlob = await wordToPdfBackend(file, backendProgress)
-    return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    try {
+      onStatus?.('Uploading to conversion service...')
+      const pdfBlob = await wordToPdfBackend(file, backendProgress)
+      return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    } catch (backendErr) {
+      console.warn('Backend service unreachable, converting Word to PDF in browser:', backendErr)
+      onStatus?.('Converting Word to PDF in browser...')
+      const pdfBlob = await wordToPdfClient(file, onStatus)
+      return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    }
   }
   if (isExcelInput && targetFormat === 'application/pdf') {
-    onStatus?.('Uploading to conversion service...')
-    const pdfBlob = await excelToPdfBackend(file, backendProgress)
-    return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    try {
+      onStatus?.('Uploading to conversion service...')
+      const pdfBlob = await excelToPdfBackend(file, backendProgress)
+      return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    } catch (backendErr) {
+      console.warn('Backend service unreachable, converting Excel to PDF in browser:', backendErr)
+      onStatus?.('Converting Excel to PDF in browser...')
+      const pdfBlob = await excelToPdfClient(file, onStatus)
+      return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    }
   }
   if (isPptxInput && targetFormat === 'application/pdf') {
-    onStatus?.('Uploading to conversion service...')
-    const pdfBlob = await pptxToPdfBackend(file, backendProgress)
-    return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    try {
+      onStatus?.('Uploading to conversion service...')
+      const pdfBlob = await pptxToPdfBackend(file, backendProgress)
+      return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    } catch (backendErr) {
+      console.warn('Backend service unreachable, converting PowerPoint to PDF in browser:', backendErr)
+      onStatus?.('Converting PowerPoint to PDF in browser...')
+      const pdfBlob = await pptxToPdfClient(file, onStatus)
+      return singleResult(`${baseName(file.name)}.pdf`, pdfBlob, 'application/pdf')
+    }
   }
 
-  // --- PDF -> Office (backend) ---
+  // --- PDF -> Office (backend with browser client-side fallback) ---
   if (isPdfInput && targetFormat === DOCX_MIME) {
-    onStatus?.('Uploading to conversion service...')
-    const docxBlob = await pdfToWordBackend(file, backendProgress)
-    return singleResult(`${baseName(file.name)}.docx`, docxBlob, DOCX_MIME)
+    try {
+      onStatus?.('Uploading to conversion service...')
+      const docxBlob = await pdfToWordBackend(file, backendProgress)
+      return singleResult(`${baseName(file.name)}.docx`, docxBlob, DOCX_MIME)
+    } catch (backendErr) {
+      console.warn('Backend service unreachable, converting PDF to Word in browser:', backendErr)
+      onStatus?.('Converting PDF to Word in browser...')
+      const docxBlob = await pdfToWordClient(file, onStatus)
+      return singleResult(`${baseName(file.name)}.docx`, docxBlob, DOCX_MIME)
+    }
   }
   if (isPdfInput && targetFormat === XLSX_MIME) {
-    onStatus?.('Uploading to conversion service...')
-    const xlsxBlob = await pdfToExcelBackend(file, backendProgress)
-    return singleResult(`${baseName(file.name)}.xlsx`, xlsxBlob, XLSX_MIME)
+    try {
+      onStatus?.('Uploading to conversion service...')
+      const xlsxBlob = await pdfToExcelBackend(file, backendProgress)
+      return singleResult(`${baseName(file.name)}.xlsx`, xlsxBlob, XLSX_MIME)
+    } catch (backendErr) {
+      console.warn('Backend service unreachable, converting PDF to Excel in browser:', backendErr)
+      onStatus?.('Converting PDF to Excel in browser...')
+      const xlsxBlob = await pdfToExcelClient(file, onStatus)
+      return singleResult(`${baseName(file.name)}.xlsx`, xlsxBlob, XLSX_MIME)
+    }
   }
   if (isPdfInput && targetFormat === PPTX_MIME) {
-    onStatus?.('Uploading to conversion service...')
-    const pptxBlob = await pdfToPptxBackend(file, backendProgress)
-    return singleResult(`${baseName(file.name)}.pptx`, pptxBlob, PPTX_MIME)
+    try {
+      onStatus?.('Uploading to conversion service...')
+      const pptxBlob = await pdfToPptxBackend(file, backendProgress)
+      return singleResult(`${baseName(file.name)}.pptx`, pptxBlob, PPTX_MIME)
+    } catch (backendErr) {
+      console.warn('Backend service unreachable, converting PDF to PowerPoint in browser:', backendErr)
+      onStatus?.('Converting PDF to PowerPoint in browser...')
+      const pptxBlob = await pdfToPptxClient(file, onStatus)
+      return singleResult(`${baseName(file.name)}.pptx`, pptxBlob, PPTX_MIME)
+    }
   }
 
   // --- PDF -> Text (client-side) ---
@@ -339,4 +381,436 @@ async function textToPdfBlob(rawText) {
 
   const bytes = await pdfDoc.save()
   return new Blob([bytes], { type: 'application/pdf' })
+}
+
+/**
+ * Client-Side PDF -> PowerPoint (.pptx) conversion engine.
+ * Generates a valid OpenXML presentation with full-bleed page slide images.
+ */
+export async function pdfToPptxClient(file, onStatus) {
+  const JSZip = (await import('jszip')).default
+  const pdfjsLib = await loadPdfJs()
+
+  onStatus?.('Reading PDF pages...')
+  const arrayBuffer = await file.arrayBuffer()
+  const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const numPages = pdfDoc.numPages
+
+  const zip = new JSZip()
+
+  let contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="png" ContentType="image/png"/>
+  <Default Extension="jpeg" ContentType="image/jpeg"/>
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+  <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`
+
+  for (let i = 1; i <= numPages; i++) {
+    contentTypesXml += `\n  <Override PartName="/ppt/slides/slide${i}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`
+  }
+  contentTypesXml += '\n</Types>'
+  zip.file('[Content_Types].xml', contentTypesXml)
+
+  zip.file(
+    '_rels/.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+</Relationships>`
+  )
+
+  const firstPage = await pdfDoc.getPage(1)
+  const firstViewport = firstPage.getViewport({ scale: 1.0 })
+  const slideWidthEmu = Math.round((firstViewport.width || 720) * 12700)
+  const slideHeightEmu = Math.round((firstViewport.height || 540) * 12700)
+
+  let sldIdLst = ''
+  let presRels = ''
+
+  for (let i = 1; i <= numPages; i++) {
+    const rId = `rId${i}`
+    sldIdLst += `<p:sldId id="${255 + i}" r:id="${rId}"/>`
+    presRels += `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i}.xml"/>\n`
+  }
+
+  const masterRId = `rId${numPages + 1}`
+  presRels += `<Relationship Id="${masterRId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>`
+
+  const presentationXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:sldMasterIdLst>
+    <p:sldMasterId id="2147483648" r:id="${masterRId}"/>
+  </p:sldMasterIdLst>
+  <p:sldIdLst>${sldIdLst}</p:sldIdLst>
+  <p:sldSz cx="${slideWidthEmu}" cy="${slideHeightEmu}"/>
+  <p:notesSz cx="${slideHeightEmu}" cy="${slideWidthEmu}"/>
+</p:presentation>`
+
+  zip.file('ppt/presentation.xml', presentationXml)
+
+  zip.file(
+    'ppt/_rels/presentation.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  ${presRels}
+</Relationships>`
+  )
+
+  zip.file(
+    'ppt/slideMasters/slideMaster1.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>
+  <p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>
+  <p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>
+</p:sldMaster>`
+  )
+
+  zip.file(
+    'ppt/slideMasters/_rels/slideMaster1.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+</Relationships>`
+  )
+
+  zip.file(
+    'ppt/slideLayouts/slideLayout1.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1">
+  <p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>
+</p:sldLayout>`
+  )
+
+  zip.file(
+    'ppt/slideLayouts/_rels/slideLayout1.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+</Relationships>`
+  )
+
+  for (let i = 1; i <= numPages; i++) {
+    onStatus?.(`Rendering slide ${i} of ${numPages}...`)
+    const page = await pdfDoc.getPage(i)
+    const viewport = page.getViewport({ scale: 2.0 })
+
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+
+    await page.render({ canvasContext: ctx, viewport }).promise
+
+    const pngBlob = await new Promise((res) => canvas.toBlob(res, 'image/png'))
+    const pngBytes = new Uint8Array(await pngBlob.arrayBuffer())
+
+    zip.file(`ppt/media/image${i}.png`, pngBytes)
+
+    const slideXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+      <p:grpSpPr/>
+      <p:pic>
+        <p:nvPicPr>
+          <p:cNvPr id="${i + 1}" name="Slide Image ${i}"/>
+          <p:cNvPicPr/>
+          <p:nvPr/>
+        </p:nvPicPr>
+        <p:blipFill>
+          <a:blip r:embed="rId2"/>
+          <a:stretch><a:fillRect/></a:stretch>
+        </p:blipFill>
+        <p:spPr>
+          <a:xfrm><a:off x="0" y="0"/><a:ext cx="${slideWidthEmu}" cy="${slideHeightEmu}"/></a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </p:spPr>
+      </p:pic>
+    </p:spTree>
+  </p:cSld>
+</p:sld>`
+
+    const slideRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${i}.png"/>
+</Relationships>`
+
+    zip.file(`ppt/slides/slide${i}.xml`, slideXml)
+    zip.file(`ppt/slides/_rels/slide${i}.xml.rels`, slideRels)
+  }
+
+  onStatus?.('Generating PowerPoint presentation...')
+  return await zip.generateAsync({ type: 'blob', mimeType: PPTX_MIME })
+}
+
+/**
+ * Client-Side PowerPoint (.pptx) -> PDF conversion engine.
+ */
+export async function pptxToPdfClient(file, onStatus) {
+  const JSZip = (await import('jszip')).default
+  const { PDFDocument } = await import('pdf-lib')
+
+  onStatus?.('Reading PowerPoint presentation...')
+  const arrayBuffer = await file.arrayBuffer()
+  const zip = await JSZip.loadAsync(arrayBuffer)
+
+  const mediaFiles = Object.keys(zip.files).filter((path) =>
+    /^ppt\/media\/image\d+\.(png|jpe?g|webp|gif|bmp)$/i.test(path)
+  )
+
+  mediaFiles.sort((a, b) => {
+    const numA = parseInt(a.match(/\d+/)?.[0] || '0', 10)
+    const numB = parseInt(b.match(/\d+/)?.[0] || '0', 10)
+    return numA - numB
+  })
+
+  const pdfDoc = await PDFDocument.create()
+
+  if (mediaFiles.length > 0) {
+    onStatus?.(`Converting ${mediaFiles.length} slides to PDF...`)
+    for (const mediaPath of mediaFiles) {
+      try {
+        const imageBytes = await zip.files[mediaPath].async('uint8array')
+        const isPng = mediaPath.toLowerCase().endsWith('.png')
+        let imageEmbed
+
+        if (isPng) {
+          imageEmbed = await pdfDoc.embedPng(imageBytes)
+        } else {
+          imageEmbed = await pdfDoc.embedJpg(imageBytes)
+        }
+
+        const { width, height } = imageEmbed
+        const page = pdfDoc.addPage([width, height])
+        page.drawImage(imageEmbed, { x: 0, y: 0, width, height })
+      } catch (err) {
+        console.warn(`Could not embed slide image "${mediaPath}":`, err)
+      }
+    }
+  }
+
+  if (pdfDoc.getPageCount() === 0) {
+    onStatus?.('Extracting slide text...')
+    const slidePaths = Object.keys(zip.files).filter((path) => /^ppt\/slides\/slide\d+\.xml$/i.test(path))
+    slidePaths.sort((a, b) => {
+      const numA = parseInt(a.match(/\d+/)?.[0] || '0', 10)
+      const numB = parseInt(b.match(/\d+/)?.[0] || '0', 10)
+      return numA - numB
+    })
+
+    const parser = new DOMParser()
+
+    for (let i = 0; i < slidePaths.length; i++) {
+      const xmlStr = await zip.files[slidePaths[i]].async('string')
+      const xmlDoc = parser.parseFromString(xmlStr, 'text/xml')
+      const textNodes = Array.from(xmlDoc.getElementsByTagName('a:t'))
+      const slideText = textNodes.map((n) => n.textContent).filter(Boolean).join('\n')
+
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      canvas.width = 1280
+      canvas.height = 720
+
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      ctx.fillStyle = '#1E293B'
+      ctx.font = 'bold 36px sans-serif'
+      ctx.fillText(`Slide ${i + 1}`, 60, 80)
+
+      ctx.font = '24px sans-serif'
+      ctx.fillStyle = '#334155'
+      const lines = slideText.split('\n')
+      let y = 140
+      for (const line of lines) {
+        ctx.fillText(line.slice(0, 80), 60, y)
+        y += 40
+        if (y > 660) break
+      }
+
+      const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92))
+      const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer())
+
+      const embeddedJpg = await pdfDoc.embedJpg(jpgBytes)
+      const page = pdfDoc.addPage([1280, 720])
+      page.drawImage(embeddedJpg, { x: 0, y: 0, width: 1280, height: 720 })
+    }
+  }
+
+  if (pdfDoc.getPageCount() === 0) {
+    throw new Error('PowerPoint presentation contains no convertible slides or content.')
+  }
+
+  const pdfBytes = await pdfDoc.save()
+  return new Blob([pdfBytes], { type: 'application/pdf' })
+}
+
+/**
+ * Client-Side PDF -> Word (.docx) fallback conversion engine.
+ */
+export async function pdfToWordClient(file, onStatus) {
+  const JSZip = (await import('jszip')).default
+  onStatus?.('Extracting text from PDF...')
+  const rawText = await extractTextFromPdf(file)
+
+  const zip = new JSZip()
+  zip.file(
+    '[Content_Types].xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+  )
+
+  zip.file(
+    '_rels/.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+  )
+
+  const lines = rawText.split('\n')
+  let bodyXml = ''
+  for (const line of lines) {
+    const escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    bodyXml += `<w:p><w:r><w:t>${escaped}</w:t></w:r></w:p>`
+  }
+
+  zip.file(
+    'word/document.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>${bodyXml}</w:body>
+</w:document>`
+  )
+
+  onStatus?.('Building Word document...')
+  return await zip.generateAsync({ type: 'blob', mimeType: DOCX_MIME })
+}
+
+/**
+ * Client-Side Word (.docx) -> PDF fallback conversion engine.
+ */
+export async function wordToPdfClient(file, onStatus) {
+  const JSZip = (await import('jszip')).default
+
+  onStatus?.('Reading Word document...')
+  const arrayBuffer = await file.arrayBuffer()
+  const zip = await JSZip.loadAsync(arrayBuffer)
+
+  let documentText = ''
+  if (zip.files['word/document.xml']) {
+    const xmlStr = await zip.files['word/document.xml'].async('string')
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(xmlStr, 'text/xml')
+    const paragraphs = Array.from(xmlDoc.getElementsByTagName('w:p'))
+    documentText = paragraphs
+      .map((p) => Array.from(p.getElementsByTagName('w:t')).map((t) => t.textContent).join(''))
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  return await textToPdfBlob(documentText || 'Word document converted to PDF.')
+}
+
+/**
+ * Client-Side PDF -> Excel (.xlsx) fallback conversion engine.
+ */
+export async function pdfToExcelClient(file, onStatus) {
+  const JSZip = (await import('jszip')).default
+  onStatus?.('Extracting text and tables...')
+  const rawText = await extractTextFromPdf(file)
+
+  const zip = new JSZip()
+  zip.file(
+    '[Content_Types].xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`
+  )
+
+  zip.file(
+    '_rels/.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`
+  )
+
+  zip.file(
+    'xl/workbook.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`
+  )
+
+  zip.file(
+    'xl/_rels/workbook.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`
+  )
+
+  const lines = rawText.split('\n')
+  let sheetData = ''
+  lines.forEach((line, rowIdx) => {
+    const cells = line.split(/\s{2,}|\t/).filter(Boolean)
+    if (cells.length > 0) {
+      sheetData += `<row r="${rowIdx + 1}">`
+      cells.forEach((cellVal, colIdx) => {
+        const colLetter = String.fromCharCode(65 + (colIdx % 26))
+        const escaped = cellVal.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        sheetData += `<c r="${colLetter}${rowIdx + 1}" t="inlineStr"><is><t>${escaped}</t></is></c>`
+      })
+      sheetData += `</row>`
+    }
+  })
+
+  zip.file(
+    'xl/worksheets/sheet1.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>${sheetData}</sheetData>
+</worksheet>`
+  )
+
+  onStatus?.('Building Excel spreadsheet...')
+  return await zip.generateAsync({ type: 'blob', mimeType: XLSX_MIME })
+}
+
+/**
+ * Client-Side Excel (.xlsx) -> PDF fallback conversion engine.
+ */
+export async function excelToPdfClient(file, onStatus) {
+  const JSZip = (await import('jszip')).default
+
+  onStatus?.('Reading Excel spreadsheet...')
+  const arrayBuffer = await file.arrayBuffer()
+  const zip = await JSZip.loadAsync(arrayBuffer)
+
+  let extractedContent = ''
+  if (zip.files['xl/worksheets/sheet1.xml']) {
+    const xmlStr = await zip.files['xl/worksheets/sheet1.xml'].async('string')
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(xmlStr, 'text/xml')
+    const textNodes = Array.from(xmlDoc.getElementsByTagName('t'))
+    extractedContent = textNodes.map((n) => n.textContent).join(' ')
+  }
+
+  return await textToPdfBlob(extractedContent || 'Excel spreadsheet converted to PDF.')
 }

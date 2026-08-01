@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { mergePdfs } from '../../utils/pdfTools'
+import { mergePdfAndImageFiles } from '../../utils/pdfTools'
 import { loadPdfFile, generateThumbnail } from '../../utils/pdfEditorEngine'
 import { formatBytes } from '../../utils/advancedCompression'
 import AdBanner from '../AdBanner'
@@ -115,6 +115,12 @@ export default function MergePdfImagesClient({
     setFiles(files.filter((f) => f.id !== id))
   }
 
+  const rotateFileBy = (id, delta) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, rotation: ((f.rotation || 0) + delta + 360) % 360 } : f))
+    )
+  }
+
   const moveFile = (id, direction) => {
     const index = files.findIndex((f) => f.id === id)
     if (direction === 'up' && index > 0) {
@@ -172,41 +178,6 @@ export default function MergePdfImagesClient({
     setDraggedId(null)
   }
 
-  const convertImagesToPdf = async (images) => {
-    const { PDFDocument } = await import('pdf-lib')
-    const pdfDoc = await PDFDocument.create()
-
-    for (const imageFile of images) {
-      try {
-        const arrayBuffer = await imageFile.arrayBuffer()
-        let imageEmbed
-
-        if (imageFile.type === 'image/jpeg') {
-          imageEmbed = await pdfDoc.embedJpg(arrayBuffer)
-        } else if (imageFile.type === 'image/png') {
-          imageEmbed = await pdfDoc.embedPng(arrayBuffer)
-        } else if (imageFile.type === 'image/webp') {
-          imageEmbed = await pdfDoc.embedPng(arrayBuffer)
-        } else {
-          continue
-        }
-
-        const { width, height } = imageEmbed
-        const page = pdfDoc.addPage([width, height])
-        page.drawImage(imageEmbed, {
-          x: 0,
-          y: 0,
-          width,
-          height,
-        })
-      } catch (err) {
-        console.error('Error converting image:', err)
-      }
-    }
-
-    return await pdfDoc.save()
-  }
-
   const handleMerge = async () => {
     if (files.length === 0) {
       alert('Please add at least one file to merge')
@@ -217,49 +188,17 @@ export default function MergePdfImagesClient({
     setProgressMsg('Preparing files for merge...')
     setResult(null)
 
+    const warnings = []
+
     try {
-      const { PDFDocument } = await import('pdf-lib')
+      const { blob, pageCount } = await mergePdfAndImageFiles(
+        files,
+        (current, total) => {
+          setProgressMsg(`Processing item ${current} of ${total}...`)
+        },
+        (warning) => warnings.push(warning)
+      )
 
-      // Separate PDFs and images
-      const pdfFiles = files.filter((f) => f.isPdf).map((f) => f.file)
-      const imageFiles = files.filter((f) => !f.isPdf).map((f) => f.file)
-
-      // Create main PDF document
-      let mainPdfBytes
-      const warnings = []
-
-      if (pdfFiles.length > 0) {
-        setProgressMsg(`Merging ${pdfFiles.length} PDF files...`)
-        const mergedBlob = await mergePdfs(
-          pdfFiles,
-          (count) => {
-            setProgressMsg(`Processing page ${count}...`)
-          },
-          (warning) => warnings.push(warning)
-        )
-        mainPdfBytes = await mergedBlob.arrayBuffer()
-      } else {
-        const pdfDoc = await PDFDocument.create()
-        mainPdfBytes = await pdfDoc.save()
-      }
-
-      // Load main PDF
-      const mainPdf = await PDFDocument.load(mainPdfBytes)
-
-      // Add images to PDF
-      if (imageFiles.length > 0) {
-        setProgressMsg(`Adding ${imageFiles.length} images to PDF...`)
-        const imagesPdf = await convertImagesToPdf(imageFiles)
-        const imagePdfDoc = await PDFDocument.load(imagesPdf)
-        const copiedPages = await mainPdf.copyPages(imagePdfDoc, imagePdfDoc.getPageIndices())
-
-        copiedPages.forEach((page) => {
-          mainPdf.addPage(page)
-        })
-      }
-
-      const mergedPdfBytes = await mainPdf.save()
-      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
 
       setResult({
@@ -268,7 +207,7 @@ export default function MergePdfImagesClient({
         dataUrl: url,
         size: blob.size,
         totalFiles: files.length,
-        totalPages: mainPdf.getPageCount(),
+        totalPages: pageCount,
         warnings,
       })
     } catch (err) {
@@ -433,14 +372,15 @@ export default function MergePdfImagesClient({
                       </button>
 
                       {/* Full Preview */}
-                      <div className="aspect-[3/4] w-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-hidden">
+                      <div className="aspect-[3/4] w-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-hidden relative">
                         {file.preview ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={file.preview}
                             alt={file.name}
                             draggable={false}
-                            className="w-full h-full object-contain pointer-events-none"
+                            className="max-w-[85%] max-h-[85%] object-contain pointer-events-none transition-transform duration-200"
+                            style={{ transform: `rotate(${file.rotation || 0}deg)` }}
                           />
                         ) : (
                           <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
@@ -454,6 +394,13 @@ export default function MergePdfImagesClient({
                         </div>
                       )}
 
+                      {/* Rotation Badge */}
+                      {file.rotation ? (
+                        <div className="absolute bottom-[3.1rem] right-2 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold shadow">
+                          {file.rotation}°
+                        </div>
+                      ) : null}
+
                       {/* File Info + Move Controls */}
                       <div className="flex items-center gap-1 p-2 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
                         <div className="flex-1 min-w-0">
@@ -462,6 +409,24 @@ export default function MergePdfImagesClient({
                           </p>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400">{formatBytes(file.size)}</p>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => rotateFileBy(file.id, -90)}
+                          className="p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-bold text-xs"
+                          title="Rotate 90° left"
+                        >
+                          ↺
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => rotateFileBy(file.id, 90)}
+                          className="p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-bold text-xs"
+                          title="Rotate 90° right"
+                        >
+                          ↻
+                        </button>
 
                         <button
                           type="button"

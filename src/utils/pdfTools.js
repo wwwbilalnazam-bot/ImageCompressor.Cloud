@@ -101,6 +101,129 @@ export async function mergePdfs(pdfFiles, onProgress, onWarning) {
 }
 
 /**
+ * Merge an ordered list of PDF and image files into a single combined PDF Document.
+ * Preserves exact user-specified item ordering, avoids blank initial pages,
+ * and supports JPG, PNG, WebP, GIF, SVG, BMP, AVIF.
+ */
+export async function mergePdfAndImageFiles(items, onProgress, onWarning) {
+  const { PDFDocument, degrees } = await import('pdf-lib')
+  const mainPdf = await PDFDocument.create()
+
+  let processedCount = 0
+
+  for (const item of items) {
+    const file = item.file || item
+    const isPdf = item.isPdf !== undefined ? item.isPdf : (file.type === 'application/pdf' || file.name?.endsWith('.pdf'))
+    const fileName = item.name || file.name || 'File'
+    const rotation = item.rotation || 0
+
+    if (isPdf) {
+      let copySuccess = false
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        const srcPdf = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true })
+        const pageIndices = srcPdf.getPageIndices()
+        if (pageIndices.length > 0) {
+          const copiedPages = await mainPdf.copyPages(srcPdf, pageIndices)
+          copiedPages.forEach((page) => {
+            if (rotation !== 0) {
+              const currentAngle = page.getRotation().angle || 0
+              page.setRotation(degrees((currentAngle + rotation) % 360))
+            }
+            mainPdf.addPage(page)
+          })
+          copySuccess = true
+        }
+      } catch (nativeErr) {
+        console.warn(`Native PDF copy failed for "${fileName}", falling back to canvas rendering:`, nativeErr)
+      }
+
+      if (!copySuccess) {
+        try {
+          const pdfjsLib = await loadPdfJs()
+          const arrayBuffer = await file.arrayBuffer()
+          const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+          const numPages = pdfDoc.numPages
+
+          for (let i = 1; i <= numPages; i++) {
+            const page = await pdfDoc.getPage(i)
+            const viewport = page.getViewport({ scale: 2.0 })
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+            canvas.width = viewport.width
+            canvas.height = viewport.height
+            await page.render({ canvasContext: ctx, viewport }).promise
+
+            const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92))
+            const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer())
+
+            const embeddedJpg = await mainPdf.embedJpg(jpgBytes)
+            const newPage = mainPdf.addPage([viewport.width, viewport.height])
+            if (rotation !== 0) {
+              newPage.setRotation(degrees(rotation))
+            }
+            newPage.drawImage(embeddedJpg, { x: 0, y: 0, width: viewport.width, height: viewport.height })
+          }
+        } catch (pdfjsErr) {
+          console.error(`Could not parse PDF "${fileName}":`, pdfjsErr)
+          if (onWarning) onWarning(`Skipped "${fileName}" — file could not be read.`)
+        }
+      }
+    } else {
+      try {
+        const img = await loadImage(file)
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+
+        const width = img.naturalWidth || img.width || 800
+        const height = img.naturalHeight || img.height || 600
+
+        if (rotation === 90 || rotation === 270) {
+          canvas.width = height
+          canvas.height = width
+        } else {
+          canvas.width = width
+          canvas.height = height
+        }
+
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        if (rotation !== 0) {
+          ctx.translate(canvas.width / 2, canvas.height / 2)
+          ctx.rotate((rotation * Math.PI) / 180)
+          ctx.drawImage(img, -width / 2, -height / 2)
+        } else {
+          ctx.drawImage(img, 0, 0)
+        }
+
+        const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92))
+        const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer())
+
+        const embeddedJpg = await mainPdf.embedJpg(jpgBytes)
+        const page = mainPdf.addPage([canvas.width, canvas.height])
+        page.drawImage(embeddedJpg, { x: 0, y: 0, width: canvas.width, height: canvas.height })
+      } catch (err) {
+        console.error(`Could not process image "${fileName}":`, err)
+        if (onWarning) onWarning(`Skipped "${fileName}" — image could not be loaded.`)
+      }
+    }
+
+    processedCount++
+    if (onProgress) onProgress(processedCount, items.length)
+  }
+
+  const pageCount = mainPdf.getPageCount()
+  if (pageCount === 0) {
+    throw new Error('None of the selected files could be processed into PDF pages.')
+  }
+
+  const pdfBytes = await mainPdf.save()
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+  return { blob, pageCount }
+}
+
+/**
  * Rotate PDF document pages by degrees (90, 180, 270)
  */
 export async function rotatePdfFile(pdfFile, degrees = 90) {

@@ -89,6 +89,26 @@ export default function SplitPdfClient({
     }
   }, [])
 
+  const resetAll = useCallback(() => {
+    if (stopThumbGenRef.current) stopThumbGenRef.current()
+    if (resultsRef.current) resultsRef.current.forEach((r) => URL.revokeObjectURL(r.dataUrl))
+
+    setFile(null)
+    setFileError(null)
+    setSrcPdfDoc(null)
+    setTotalPages(0)
+    setPages([])
+    setSelectedOrder([])
+    setSplitMode(lockMode || 'extract')
+    setRangesInput('')
+    setEqualPartsSize(5)
+    setResults(null)
+    setResultWarnings([])
+    setSplitError(null)
+    setIsProcessing(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }, [lockMode])
+
   // Privacy: auto-clear generated files after a period of inactivity.
   useEffect(() => {
     if (autoClearTimerRef.current) clearTimeout(autoClearTimerRef.current)
@@ -97,8 +117,7 @@ export default function SplitPdfClient({
         resetAll()
       }, AUTO_CLEAR_MS)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results])
+  }, [results, resetAll])
 
   const loadFile = async (selectedFile) => {
     if (stopThumbGenRef.current) stopThumbGenRef.current()
@@ -395,26 +414,6 @@ export default function SplitPdfClient({
     setResults(null)
     setResultWarnings([])
     setSplitError(null)
-  }
-
-  const resetAll = () => {
-    if (stopThumbGenRef.current) stopThumbGenRef.current()
-    if (resultsRef.current) resultsRef.current.forEach((r) => URL.revokeObjectURL(r.dataUrl))
-
-    setFile(null)
-    setFileError(null)
-    setSrcPdfDoc(null)
-    setTotalPages(0)
-    setPages([])
-    setSelectedOrder([])
-    setSplitMode(lockMode || 'extract')
-    setRangesInput('')
-    setEqualPartsSize(5)
-    setResults(null)
-    setResultWarnings([])
-    setSplitError(null)
-    setIsProcessing(false)
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const selectedCount = selectedOrder.length

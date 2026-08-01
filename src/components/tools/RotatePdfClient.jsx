@@ -96,6 +96,8 @@ export default function RotatePdfClient() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0])
   }
 
+  const [removedPages, setRemovedPages] = useState([])
+
   const rotatePageBy = (pageNumber, delta) => {
     setPages((prev) =>
       prev.map((p) => (p.pageNumber === pageNumber ? { ...p, rotation: (p.rotation + delta + 360) % 360 } : p))
@@ -105,34 +107,58 @@ export default function RotatePdfClient() {
     setPages((prev) => prev.map((p) => ({ ...p, rotation: (p.rotation + delta + 360) % 360 })))
   }
 
-  const rotatedCount = pages.filter((p) => p.rotation !== 0).length
+  const toggleRemovePage = (pageNumber) => {
+    setRemovedPages((prev) =>
+      prev.includes(pageNumber) ? prev.filter((p) => p !== pageNumber) : [...prev, pageNumber]
+    )
+  }
+
+  const rotatedCount = pages.filter((p) => p.rotation !== 0 && !removedPages.includes(p.pageNumber)).length
+  const removedCount = removedPages.length
 
   const handleRotate = async () => {
-    if (!srcPdfDoc || rotatedCount === 0) return
+    if (!srcPdfDoc) return
+
+    const activePages = pages.filter((p) => !removedPages.includes(p.pageNumber))
+    if (activePages.length === 0) {
+      alert('Please keep at least one page in the PDF.')
+      return
+    }
 
     setIsProcessing(true)
     setRotateError(null)
     setResult(null)
 
     try {
-      for (const page of pages) {
+      const { PDFDocument, degrees } = await import('pdf-lib')
+      const arrayBuffer = await file.arrayBuffer()
+      const origDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true })
+
+      const newPdf = await PDFDocument.create()
+
+      for (const page of activePages) {
+        const pageIdx = page.pageNumber - 1
+        const [copiedPage] = await newPdf.copyPages(origDoc, [pageIdx])
         if (page.rotation !== 0) {
-          await rotatePage(srcPdfDoc, page.pageNumber - 1, page.rotation)
+          const currentAngle = copiedPage.getRotation().angle || 0
+          copiedPage.setRotation(degrees((currentAngle + page.rotation) % 360))
         }
+        newPdf.addPage(copiedPage)
       }
-      const bytes = await srcPdfDoc.save()
+
+      const bytes = await newPdf.save()
       const blob = new Blob([bytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
 
       setResult({
-        filename: `${sanitizeBaseName(file.name)}-rotated.pdf`,
+        filename: `${sanitizeBaseName(file.name)}-modified.pdf`,
         blob,
         dataUrl: url,
         size: blob.size,
       })
     } catch (err) {
       console.error('Rotate error:', err)
-      setRotateError(err.message || 'Failed to rotate the PDF. Please try again.')
+      setRotateError(err.message || 'Failed to process the PDF. Please try again.')
     } finally {
       setIsProcessing(false)
     }
@@ -307,81 +333,111 @@ export default function RotatePdfClient() {
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Pages — {rotatedCount} of {totalPages} rotated
-                  </h2>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Pages — {pages.length - removedCount} active ({rotatedCount} rotated
+                      {removedCount > 0 ? `, ${removedCount} removed` : ''})
+                    </h2>
+                    {removedCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setRemovedPages([])}
+                        className="text-xs font-semibold text-emerald-600 hover:underline"
+                      >
+                        Restore All ({removedCount})
+                      </button>
+                    )}
+                  </div>
 
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-[30rem] overflow-y-auto p-1">
-                    {pages.map((page) => (
-                      <div
-                        key={page.pageNumber}
-                        className={`relative flex flex-col rounded-xl overflow-hidden border-2 ${
-                          page.rotation !== 0
-                            ? 'border-emerald-500 ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
-                            : 'border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        <div className="absolute top-1.5 left-1.5 z-10 min-w-5 h-5 px-1 rounded-full bg-slate-400/80 flex items-center justify-center text-white text-[10px] font-bold">
-                          {page.pageNumber}
-                        </div>
-
-                        {page.rotation !== 0 && (
-                          <div className="absolute top-1.5 right-1.5 z-10 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-bold">
-                            {page.rotation}°
+                    {pages.map((page) => {
+                      const isRemoved = removedPages.includes(page.pageNumber)
+                      return (
+                        <div
+                          key={page.pageNumber}
+                          className={`relative flex flex-col rounded-xl overflow-hidden border-2 transition-all ${
+                            isRemoved
+                              ? 'opacity-40 border-red-300 dark:border-red-900 bg-red-50/20'
+                              : page.rotation !== 0
+                              ? 'border-emerald-500 ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
+                              : 'border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          <div className="absolute top-1.5 left-1.5 z-10 min-w-5 h-5 px-1 rounded-full bg-slate-900/80 text-white text-[10px] font-bold flex items-center justify-center">
+                            {page.pageNumber}
                           </div>
-                        )}
 
-                        <div className="aspect-[3/4] w-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-hidden">
-                          {page.thumbnail ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={page.thumbnail}
-                              alt={`Page ${page.pageNumber}`}
-                              draggable={false}
-                              className="max-w-[80%] max-h-[80%] object-contain pointer-events-none transition-transform duration-200"
-                              style={{ transform: `rotate(${page.rotation}deg)` }}
-                            />
-                          ) : page.error ? (
-                            <span className="text-[10px] text-slate-400">No preview</span>
-                          ) : (
-                            <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                          {page.rotation !== 0 && !isRemoved && (
+                            <div className="absolute top-1.5 right-1.5 z-10 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-bold">
+                              {page.rotation}°
+                            </div>
                           )}
-                        </div>
 
-                        <div className="flex items-center justify-center gap-1 py-1.5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
-                          <button
-                            type="button"
-                            onClick={() => rotatePageBy(page.pageNumber, -90)}
-                            title="Rotate left"
-                            className="p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9"
+                          <div className="aspect-[3/4] w-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-hidden relative">
+                            {page.thumbnail ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={page.thumbnail}
+                                alt={`Page ${page.pageNumber}`}
+                                draggable={false}
+                                className={`max-w-[80%] max-h-[80%] object-contain pointer-events-none transition-transform duration-200 ${
+                                  isRemoved ? 'grayscale' : ''
+                                }`}
+                                style={{ transform: `rotate(${page.rotation}deg)` }}
                               />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => rotatePageBy(page.pageNumber, 90)}
-                            title="Rotate right"
-                            className="p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M20 4v5h-.582m-15.356 2A8.001 8.001 0 0119.418 9m0 0H15"
-                              />
-                            </svg>
-                          </button>
+                            ) : page.error ? (
+                              <span className="text-[10px] text-slate-400">No preview</span>
+                            ) : (
+                              <div className="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                            )}
+
+                            {isRemoved && (
+                              <div className="absolute inset-0 bg-red-950/30 flex items-center justify-center">
+                                <span className="px-2 py-1 rounded bg-red-600 text-white text-[10px] font-bold shadow">
+                                  Removed
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between px-1.5 py-1.5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => rotatePageBy(page.pageNumber, -90)}
+                                disabled={isRemoved}
+                                title="Rotate 90° Left"
+                                className="p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-all text-xs font-bold"
+                              >
+                                ↺
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => rotatePageBy(page.pageNumber, 90)}
+                                disabled={isRemoved}
+                                title="Rotate 90° Right"
+                                className="p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-all text-xs font-bold"
+                              >
+                                ↻
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleRemovePage(page.pageNumber)}
+                              title={isRemoved ? 'Restore page' : 'Remove page'}
+                              className={`px-1.5 py-0.5 rounded text-xs font-bold transition-all ${
+                                isRemoved
+                                  ? 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950'
+                                  : 'text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950'
+                              }`}
+                            >
+                              {isRemoved ? 'Restore' : '✕'}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
 
