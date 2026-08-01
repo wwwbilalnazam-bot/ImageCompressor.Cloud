@@ -42,7 +42,24 @@ export default function MergePdfImagesClient({
   const [result, setResult] = useState(null)
   const [draggedId, setDraggedId] = useState(null)
   const [dragOverId, setDragOverId] = useState(null)
+  const [pageSize, setPageSize] = useState('auto')
+  const [pageOrientation, setPageOrientation] = useState('auto')
+  const [margin, setMargin] = useState('none')
+  const [addPageNumbers, setAddPageNumbers] = useState(false)
+  const [previewFile, setPreviewFile] = useState(null)
   const fileInputRef = useRef(null)
+
+  const sortFilesAlphabetically = () => {
+    setFiles((prev) => [...prev].sort((a, b) => a.name.localeCompare(b.name)))
+  }
+
+  const reverseFilesOrder = () => {
+    setFiles((prev) => [...prev].reverse())
+  }
+
+  const rotateAllFiles = (delta) => {
+    setFiles((prev) => prev.map((f) => ({ ...f, rotation: ((f.rotation || 0) + delta + 360) % 360 })))
+  }
 
   const handleDragOver = (e) => {
     e.preventDefault()
@@ -193,6 +210,12 @@ export default function MergePdfImagesClient({
     try {
       const { blob, pageCount } = await mergePdfAndImageFiles(
         files,
+        {
+          pageSize,
+          pageOrientation,
+          margin,
+          addPageNumbers,
+        },
         (current, total) => {
           setProgressMsg(`Processing item ${current} of ${total}...`)
         },
@@ -323,17 +346,120 @@ export default function MergePdfImagesClient({
             {/* Files List */}
             {files.length > 0 && !result && (
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                     📂 {isImageToPdf ? `Images to Convert (${files.length})` : `Files to Merge (${files.length})`}
                   </h2>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2 text-xs font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-all"
-                  >
-                    + Add More
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3 py-1.5 text-xs font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-all"
+                    >
+                      + Add More
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFiles([])}
+                      className="px-3 py-1.5 text-xs font-semibold bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900 transition-all"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Actions & Formatting Options */}
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-2 flex-wrap gap-2">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                      ⚙️ Layout & Formatting Options
+                    </span>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={sortFilesAlphabetically}
+                        className="px-2.5 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-semibold text-slate-700 dark:text-slate-200 hover:border-emerald-500 transition-all"
+                        title="Sort A-Z by file name"
+                      >
+                        Sort A-Z
+                      </button>
+                      <button
+                        type="button"
+                        onClick={reverseFilesOrder}
+                        className="px-2.5 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-semibold text-slate-700 dark:text-slate-200 hover:border-emerald-500 transition-all"
+                        title="Reverse current file list order"
+                      >
+                        Reverse ⇄
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rotateAllFiles(90)}
+                        className="px-2.5 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-semibold text-slate-700 dark:text-slate-200 hover:border-emerald-500 transition-all"
+                        title="Rotate all files 90°"
+                      >
+                        Rotate All ↻
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Page Size:
+                      </label>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => setPageSize(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      >
+                        <option value="auto">Auto (Fit to Image / Original)</option>
+                        <option value="a4">Standard A4 (210 × 297 mm)</option>
+                        <option value="letter">US Letter (8.5 × 11 in)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Orientation:
+                      </label>
+                      <select
+                        value={pageOrientation}
+                        onChange={(e) => setPageOrientation(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      >
+                        <option value="auto">Auto-detect</option>
+                        <option value="portrait">Portrait 📱</option>
+                        <option value="landscape">Landscape 🖥️</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Page Margin:
+                      </label>
+                      <select
+                        value={margin}
+                        onChange={(e) => setMargin(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      >
+                        <option value="none">None (Full Bleed)</option>
+                        <option value="small">Small Margin (15pt)</option>
+                        <option value="medium">Medium Margin (30pt)</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center pt-5">
+                      <label className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={addPageNumbers}
+                          onChange={(e) => setAddPageNumbers(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 dark:bg-slate-700 border-slate-300 dark:border-slate-600"
+                        />
+                        <span>Add Page Numbers</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[36rem] overflow-y-auto p-1">
@@ -372,7 +498,11 @@ export default function MergePdfImagesClient({
                       </button>
 
                       {/* Full Preview */}
-                      <div className="aspect-[3/4] w-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-hidden relative">
+                      <div
+                        onClick={() => file.preview && setPreviewFile(file)}
+                        className="aspect-[3/4] w-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center overflow-hidden relative cursor-zoom-in"
+                        title="Click to expand preview"
+                      >
                         {file.preview ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -703,6 +833,64 @@ export default function MergePdfImagesClient({
           </div>
         </div>
       </div>
+
+      {/* Full-Screen Preview Lightbox Modal */}
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setPreviewFile(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-white dark:bg-slate-900 rounded-2xl p-4 overflow-hidden shadow-2xl flex flex-col items-center space-y-3 border border-slate-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+              <span className="font-bold text-sm text-slate-900 dark:text-white truncate max-w-md">
+                🔍 {previewFile.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewFile(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold flex items-center justify-center transition-all"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto flex items-center justify-center max-h-[75vh]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewFile.preview}
+                alt={previewFile.name}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-md transition-transform duration-200"
+                style={{ transform: `rotate(${previewFile.rotation || 0}deg)` }}
+              />
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => rotateFileBy(previewFile.id, -90)}
+                className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+              >
+                ↺ Rotate Left 90°
+              </button>
+              <button
+                type="button"
+                onClick={() => rotateFileBy(previewFile.id, 90)}
+                className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+              >
+                ↻ Rotate Right 90°
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewFile(null)}
+                className="px-4 py-1.5 rounded-lg bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ad Banner */}
       <div className="pt-6 shrink-0">

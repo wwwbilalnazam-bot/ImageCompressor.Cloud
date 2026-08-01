@@ -105,10 +105,25 @@ export async function mergePdfs(pdfFiles, onProgress, onWarning) {
  * Preserves exact user-specified item ordering, avoids blank initial pages,
  * and supports JPG, PNG, WebP, GIF, SVG, BMP, AVIF.
  */
-export async function mergePdfAndImageFiles(items, onProgress, onWarning) {
-  const { PDFDocument, degrees } = await import('pdf-lib')
+export async function mergePdfAndImageFiles(items, options = {}, onProgress, onWarning) {
+  // Support flexible argument signatures
+  if (typeof options === 'function') {
+    onWarning = onProgress
+    onProgress = options
+    options = {}
+  }
+
+  const { PDFDocument, degrees, StandardFonts, rgb } = await import('pdf-lib')
   const mainPdf = await PDFDocument.create()
 
+  const {
+    pageSize = 'auto',
+    pageOrientation = 'auto',
+    margin = 'none',
+    addPageNumbers = false,
+  } = options
+
+  const marginVal = margin === 'small' ? 15 : margin === 'medium' ? 30 : 0
   let processedCount = 0
 
   for (const item of items) {
@@ -117,7 +132,7 @@ export async function mergePdfAndImageFiles(items, onProgress, onWarning) {
     const fileName = item.name || file.name || 'File'
     const rotation = item.rotation || 0
 
-    if (isPdf) {
+    if (isPdf && pageSize === 'auto' && marginVal === 0) {
       let copySuccess = false
       try {
         const arrayBuffer = await file.arrayBuffer()
@@ -138,64 +153,138 @@ export async function mergePdfAndImageFiles(items, onProgress, onWarning) {
         console.warn(`Native PDF copy failed for "${fileName}", falling back to canvas rendering:`, nativeErr)
       }
 
-      if (!copySuccess) {
-        try {
-          const pdfjsLib = await loadPdfJs()
-          const arrayBuffer = await file.arrayBuffer()
-          const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-          const numPages = pdfDoc.numPages
+      if (copySuccess) {
+        processedCount++
+        if (onProgress) onProgress(processedCount, items.length)
+        continue
+      }
+    }
 
-          for (let i = 1; i <= numPages; i++) {
-            const page = await pdfDoc.getPage(i)
-            const viewport = page.getViewport({ scale: 2.0 })
-            const canvas = document.createElement('canvas')
-            const ctx = canvas.getContext('2d')
-            canvas.width = viewport.width
-            canvas.height = viewport.height
-            await page.render({ canvasContext: ctx, viewport }).promise
+    if (isPdf) {
+      try {
+        const pdfjsLib = await loadPdfJs()
+        const arrayBuffer = await file.arrayBuffer()
+        const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+        const numPages = pdfDoc.numPages
 
-            const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92))
-            const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer())
+        for (let i = 1; i <= numPages; i++) {
+          const page = await pdfDoc.getPage(i)
+          const viewport = page.getViewport({ scale: 2.0 })
+          const srcW = viewport.width
+          const srcH = viewport.height
 
-            const embeddedJpg = await mainPdf.embedJpg(jpgBytes)
-            const newPage = mainPdf.addPage([viewport.width, viewport.height])
-            if (rotation !== 0) {
-              newPage.setRotation(degrees(rotation))
-            }
-            newPage.drawImage(embeddedJpg, { x: 0, y: 0, width: viewport.width, height: viewport.height })
+          const tempCanvas = document.createElement('canvas')
+          const tempCtx = tempCanvas.getContext('2d')
+          tempCanvas.width = srcW
+          tempCanvas.height = srcH
+          await page.render({ canvasContext: tempCtx, viewport }).promise
+
+          // Apply options & sizing
+          let targetW = srcW
+          let targetH = srcH
+          if (pageSize === 'a4') {
+            targetW = 595.28
+            targetH = 841.89
+          } else if (pageSize === 'letter') {
+            targetW = 612
+            targetH = 792
           }
-        } catch (pdfjsErr) {
-          console.error(`Could not parse PDF "${fileName}":`, pdfjsErr)
-          if (onWarning) onWarning(`Skipped "${fileName}" — file could not be read.`)
+
+          if (pageSize !== 'auto') {
+            if (pageOrientation === 'landscape' || (pageOrientation === 'auto' && srcW > srcH)) {
+              if (targetW < targetH) [targetW, targetH] = [targetH, targetW]
+            } else if (pageOrientation === 'portrait') {
+              if (targetW > targetH) [targetW, targetH] = [targetH, targetW]
+            }
+          }
+
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          canvas.width = Math.round(targetW)
+          canvas.height = Math.round(targetH)
+
+          ctx.fillStyle = '#FFFFFF'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+          const availW = Math.max(10, canvas.width - marginVal * 2)
+          const availH = Math.max(10, canvas.height - marginVal * 2)
+          const scale = Math.min(availW / srcW, availH / srcH)
+          const drawW = srcW * scale
+          const drawH = srcH * scale
+          const posX = (canvas.width - drawW) / 2
+          const posY = (canvas.height - drawH) / 2
+
+          ctx.drawImage(tempCanvas, posX, posY, drawW, drawH)
+
+          const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92))
+          const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer())
+
+          const embeddedJpg = await mainPdf.embedJpg(jpgBytes)
+          const newPage = mainPdf.addPage([canvas.width, canvas.height])
+          if (rotation !== 0) {
+            newPage.setRotation(degrees(rotation))
+          }
+          newPage.drawImage(embeddedJpg, { x: 0, y: 0, width: canvas.width, height: canvas.height })
         }
+      } catch (pdfjsErr) {
+        console.error(`Could not parse PDF "${fileName}":`, pdfjsErr)
+        if (onWarning) onWarning(`Skipped "${fileName}" — file could not be read.`)
       }
     } else {
       try {
         const img = await loadImage(file)
+        const srcW = img.naturalWidth || img.width || 800
+        const srcH = img.naturalHeight || img.height || 600
+
+        let targetW = srcW
+        let targetH = srcH
+        if (pageSize === 'a4') {
+          targetW = 595.28
+          targetH = 841.89
+        } else if (pageSize === 'letter') {
+          targetW = 612
+          targetH = 792
+        }
+
+        let effectiveSrcW = srcW
+        let effectiveSrcH = srcH
+        if (rotation === 90 || rotation === 270) {
+          effectiveSrcW = srcH
+          effectiveSrcH = srcW
+        }
+
+        if (pageSize !== 'auto') {
+          if (pageOrientation === 'landscape' || (pageOrientation === 'auto' && effectiveSrcW > effectiveSrcH)) {
+            if (targetW < targetH) [targetW, targetH] = [targetH, targetW]
+          } else if (pageOrientation === 'portrait') {
+            if (targetW > targetH) [targetW, targetH] = [targetH, targetW]
+          }
+        } else {
+          targetW = effectiveSrcW
+          targetH = effectiveSrcH
+        }
+
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
-
-        const width = img.naturalWidth || img.width || 800
-        const height = img.naturalHeight || img.height || 600
-
-        if (rotation === 90 || rotation === 270) {
-          canvas.width = height
-          canvas.height = width
-        } else {
-          canvas.width = width
-          canvas.height = height
-        }
+        canvas.width = Math.round(targetW)
+        canvas.height = Math.round(targetH)
 
         ctx.fillStyle = '#FFFFFF'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
+        const availW = Math.max(10, canvas.width - marginVal * 2)
+        const availH = Math.max(10, canvas.height - marginVal * 2)
+        const scale = Math.min(availW / effectiveSrcW, availH / effectiveSrcH)
+        const drawW = srcW * scale
+        const drawH = srcH * scale
+
+        ctx.save()
+        ctx.translate(canvas.width / 2, canvas.height / 2)
         if (rotation !== 0) {
-          ctx.translate(canvas.width / 2, canvas.height / 2)
           ctx.rotate((rotation * Math.PI) / 180)
-          ctx.drawImage(img, -width / 2, -height / 2)
-        } else {
-          ctx.drawImage(img, 0, 0)
         }
+        ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH)
+        ctx.restore()
 
         const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92))
         const jpgBytes = new Uint8Array(await jpgBlob.arrayBuffer())
@@ -211,6 +300,30 @@ export async function mergePdfAndImageFiles(items, onProgress, onWarning) {
 
     processedCount++
     if (onProgress) onProgress(processedCount, items.length)
+  }
+
+  if (addPageNumbers && mainPdf.getPageCount() > 0) {
+    try {
+      const font = await mainPdf.embedFont(StandardFonts.Helvetica)
+      const pdfPages = mainPdf.getPages()
+      const total = pdfPages.length
+
+      pdfPages.forEach((p, idx) => {
+        const pSize = p.getSize()
+        const text = `Page ${idx + 1} of ${total}`
+        const textWidth = font.widthOfTextAtSize(text, 9)
+        const x = (pSize.width - textWidth) / 2
+        p.drawText(text, {
+          x,
+          y: 15,
+          size: 9,
+          font,
+          color: rgb(0.35, 0.35, 0.35),
+        })
+      })
+    } catch (fontErr) {
+      console.warn('Could not add page numbers:', fontErr)
+    }
   }
 
   const pageCount = mainPdf.getPageCount()
